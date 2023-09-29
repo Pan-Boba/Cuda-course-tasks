@@ -1,9 +1,9 @@
-﻿#include "ArrayAllocation.cuh"
+﻿#include "1 task\ArrayAllocation.cuh"
 
 
 int main()
 {
-    CalculateError();
+	firstTask::PrintError();
 
-    return 0;
+	return 0;
 }
