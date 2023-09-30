@@ -1,4 +1,4 @@
-﻿#include "1 task\ArrayAllocation.cuh"
+﻿#include "task1\ArrayAllocation.cuh"
 
 
 int main()

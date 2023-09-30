@@ -33,7 +33,6 @@
 
 # Other
 *.vs
-*.vcxproj
-*.vcxproj.filters
-*.vcxproj.user
+build
+out
 x64
