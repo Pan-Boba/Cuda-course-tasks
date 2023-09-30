@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.25)
 project(CudaCourseTasks LANGUAGES CUDA CXX)
 
-set(CMAKE_SUPRESS_REGENERATION true)
+set(CMAKE_SUPPRESS_REGENERATION true)
 
 add_executable(CudaCourseTasks src/kernel.cu)
 
