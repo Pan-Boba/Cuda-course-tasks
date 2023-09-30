@@ -37,6 +37,8 @@ static void Print(const std::vector<double>& array)
 			std::cout << "\nErrors for double array (sinf, (double) sin): ";
 		}
 	}
+
+	std::cout << "\n\n";
 }
 
 void firstTask::PrintError()
@@ -44,6 +46,7 @@ void firstTask::PrintError()
 	int arraySize = 1e8;
 	float* floatArray = new float[arraySize];
 	double* doubleArray = new double[arraySize];
+
 	std::vector<double> errorArray
 	{
 		CalculateError<float, float>(arraySize, floatArray, &sinf),
