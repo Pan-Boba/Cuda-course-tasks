@@ -3,7 +3,7 @@
 
 int main()
 {
-	std::cout << "Running first task...\n" << std::endl;
+	std::cout << "Running the first task...\n" << std::endl;
 
 	firstTask::PrintError();
 

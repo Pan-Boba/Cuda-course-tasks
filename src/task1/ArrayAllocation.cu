@@ -1,50 +1,105 @@
 #include "ArrayAllocation.cuh"
 
+#define BlockSize 512
+#define NumBlocks 100
+
 using namespace firstTask;
 
-template <class T, class J>
-__global__ static void Initialize(const int iniSize, T* arr, J(*function)(J))
+static enum class Function { sin, sinf, __sinf };
+
+#pragma region Initialize
+
+template <class T>
+__global__ static void InitializeWithSin(const int iniSize, T* arr)
 {
 	unsigned int index = threadIdx.x;
 	int stride = blockDim.x;
 
 	for (int i = index; i < iniSize; i += stride)
 	{
-		arr[i] = function((i % 360) * M_PI / 180.0);
+		arr[i] = sin((i % 360) * M_PI / 180.0);
 	}
 }
 
-template <class T, class J>
-static double CalculateError(const int size, T* arr, J(*function)(J))
+template <class T>
+__global__ static void InitializeWithSinf(const int iniSize, T* arr)
 {
-	double error = 0.0;
-	dim3 blockSize(512);
-	dim3 numBlocks(100);
+	unsigned int index = threadIdx.x;
+	int stride = blockDim.x;
 
-	Initialize<T, J><<<numBlocks, blockSize>>>(size, arr, function);
+	for (int i = index; i < iniSize; i += stride)
+	{
+		arr[i] = sinf((i % 360) * M_PI / 180.0);
+	}
+}
+
+template <class T>
+__global__ static void InitializeWithFastSin(const int iniSize, T* arr)
+{
+	unsigned int index = threadIdx.x;
+	int stride = blockDim.x;
+
+	for (int i = index; i < iniSize; i += stride)
+	{
+		arr[i] = __sinf((i % 360) * M_PI / 180.0);
+	}
+}
+
+
+#pragma endregion
+
+template <class T>
+static std::pair< double, double > CalculateError(const int size, T* arr, Function mode)
+{
+	dim3 blockSize(BlockSize);
+	dim3 numBlocks(NumBlocks);
+	double error = 0.0;
+	auto start = std::chrono::high_resolution_clock::now();
+
+	switch (mode)
+	{
+		case Function::sin:
+		{
+			InitializeWithSin<T> << <numBlocks, blockSize >> > (size, arr);
+			break;
+		}
+		case Function::sinf:
+		{
+			InitializeWithSinf<T> << <numBlocks, blockSize >> > (size, arr);
+			break;
+		}
+
+		case Function::__sinf:
+		{
+			InitializeWithFastSin<T> << <numBlocks, blockSize >> > (size, arr);
+			break;
+		}
+	}
 
 	// Wait for GPU to finish
 	cudaDeviceSynchronize();
+
+	auto timeElapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count();
 
 	for (int i = 0; i < size; i++)
 	{
 		error += fabs(sin((i % 360) * M_PI / 180.0) - arr[i]);
 	}
 
-	return error;
+	return { error, timeElapsed };
 }
 
-static void Print(const std::vector<double>& array)
+static void Print(const std::vector<std::pair< double, double >>& array)
 {
-	std::cout << "Errors for float array (sinf, (double) sin): ";
+	std::cout << "Errors for float array (sinf, sin, __sinf): ";
 
 	for (int i = 0; i < array.size(); i++)
 	{
-		std::cout << array.at(i) << "; ";
+		std::cout << array.at(i).first << " (Time: " << array.at(i).second << " microseconds); ";
 
 		if (i == array.size() / 2 - 1)
 		{
-			std::cout << "\nErrors for double array (sinf, (double) sin): ";
+			std::cout << "\nErrors for double array (sinf, sin, __sinf): ";
 		}
 	}
 
@@ -53,6 +108,7 @@ static void Print(const std::vector<double>& array)
 
 void firstTask::PrintError()
 {
+	//Function
 	int arraySize = 1e8;
 	float* floatArray;
 	double* doubleArray;
@@ -61,14 +117,15 @@ void firstTask::PrintError()
 	cudaMallocManaged(&floatArray, arraySize * sizeof(float));
 	cudaMallocManaged(&doubleArray, arraySize * sizeof(double));
 
-	std::vector<double> errorArray
+	std::vector < std::pair< double, double >> errorArray
 	{
-		CalculateError<float, float>(arraySize, floatArray, &sinf),
-		CalculateError<float, double>(arraySize, floatArray, &sin),
-		//CalculateError<float, float>(arraySize, floatArray, &__sinf),
-		CalculateError<double, float>(arraySize, doubleArray, &sinf),
-		CalculateError<double, double>(arraySize, doubleArray, &sin),
-		//CalculateError<float, float>(arraySize, doubleArray, &__sinf)
+		CalculateError<float>(arraySize, floatArray, Function::sinf),
+		CalculateError<float>(arraySize, floatArray, Function::sin),
+		CalculateError<float>(arraySize, floatArray, Function::__sinf),
+
+		CalculateError<double>(arraySize, doubleArray, Function::sinf),
+		CalculateError<double>(arraySize, doubleArray, Function::sin),
+		CalculateError<double>(arraySize, doubleArray, Function::__sinf)
 	};
 
 	// Check for errors

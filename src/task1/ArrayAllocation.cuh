@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <iostream>
 #include <vector>
+#include <functional>
+#include <chrono>
 #include <math.h>
 
 namespace firstTask
