@@ -12,5 +12,5 @@
 
 namespace secondTask
 {
-	void GuassianBlur2D();
+	void Blur2DImage(std::string pathToImage);
 }
