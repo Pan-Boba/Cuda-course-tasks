@@ -2,9 +2,9 @@
 
 #define KERNEL_SIZE 3
 #define IMAGE_CHANNELS 3
-#define BLOCK_SIZE 64
+#define BLOCK_SIZE 16
 #define SHARED_BLOCK_SIZE (BLOCK_SIZE - 1 + KERNEL_SIZE)
-#define ITERATION_NUM 1
+#define ITERATION_NUM 3
 
 using namespace secondTask;
 
@@ -166,8 +166,7 @@ static void BlurImageWithFixedMemoryType(const cv::Mat3b& inputImage, const unsi
 
 	if (type == MemoryType::Texture)
 	{
-		cudaChannelFormatDesc textureDescription = cudaCreateChannelDesc<unsigned int>();
-		cudaBindTexture(0, deviceInputTexture, inputData, textureDescription, allocImageSize);
+		cudaBindTexture(0, deviceInputTexture, inputData, allocImageSize);
 	}
 
 	// mark the average time
