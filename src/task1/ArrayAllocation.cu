@@ -86,7 +86,7 @@ static std::pair< double, double > CalculateError(const int size, T* arr, Functi
 		error += fabs(sin((i % 360) * M_PI / 180.0) - arr[i]);
 	}
 
-	return { error, timeElapsed };
+	return { error / 1e8, timeElapsed };
 }
 
 static void Print(const std::vector<std::pair< double, double >>& array)

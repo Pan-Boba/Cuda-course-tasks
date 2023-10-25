@@ -4,15 +4,31 @@
 #define IMAGE_CHANNELS 3
 #define BLOCK_SIZE 16
 #define SHARED_BLOCK_SIZE (BLOCK_SIZE - 1 + KERNEL_SIZE)
+#define ITERATION_NUM 1
 
 using namespace secondTask;
+
+// helper-enum
+static enum class MemoryType { Global = 0, Shared = 1, Texture = 2 };
+inline const char* ToString(MemoryType type)
+{
+	switch (type)
+	{
+		case MemoryType::Global:	return "Global";
+		case MemoryType::Shared:	return "Shared";
+		case MemoryType::Texture:	return "Texture";
+	}
+}
+
 
 static const float hostKernel[KERNEL_SIZE * KERNEL_SIZE] = { 1.0 / 16, 2.0 / 16, 1.0 / 16,
 															  2.0 / 16, 4.0 / 16, 2.0 / 16,
 															  1.0 / 16, 2.0 / 16, 1.0 / 16 };
 
-// __constant__ static float deviceConstantInputData[892 * 460 * IMAGE_CHANNELS]; - wont'do: too large image
+
 __constant__ static float deviceConstantKernel[KERNEL_SIZE * KERNEL_SIZE];
+static texture<unsigned char, cudaTextureType1D, cudaReadModeElementType> deviceInputTexture;
+
 
 __global__ static void GlobalMemKernelConvolution(const unsigned char* inputImage, unsigned char* resultImage, int width, int height)
 {
@@ -105,9 +121,8 @@ __global__ static void SharedMemKernelConvolution(const unsigned char* inputImag
 }
 
 
-__global__ static void TextureMemKernelConvolution(const cudaTextureObject_t inputImageTexture, unsigned char* resultImage, int width, int height)
+__global__ static void TextureMemKernelConvolution(unsigned char* resultImage, int width, int height)
 {
-	// TO DO
 	unsigned int col = threadIdx.x + blockIdx.x * blockDim.x;
 	unsigned int row = threadIdx.y + blockIdx.y * blockDim.y;
 
@@ -126,7 +141,7 @@ __global__ static void TextureMemKernelConvolution(const cudaTextureObject_t inp
 
 					if (currentRow >= 0 && currentRow < height && currentCol >= 0 && currentCol < width)
 					{
-						sum += tex1D<int>(inputImageTexture, IMAGE_CHANNELS * (currentRow * width + currentCol) + channel) * deviceConstantKernel[i * KERNEL_SIZE + j];
+						sum += tex1Dfetch(deviceInputTexture, IMAGE_CHANNELS * (currentRow * width + currentCol) + channel) * deviceConstantKernel[i * KERNEL_SIZE + j];
 					}
 				}
 			}
@@ -138,134 +153,91 @@ __global__ static void TextureMemKernelConvolution(const cudaTextureObject_t inp
 }
 
 
-
-static void BlurImageWithGlobalMemory(const cv::Mat3b& inputImage, int imageWidth, int imageHeight)
+static void BlurImageWithFixedMemoryType(const cv::Mat3b& inputImage, const unsigned char* inputData, cv::Mat3b& outputImage, unsigned char* outputData, MemoryType type)
 {
-	cv::Mat3b outputImage = inputImage.clone();
+	std::string outputImageName = ToString(type);
+	long long totalTimeElapsed = 0;
 
-	int allocImageSize = imageWidth * imageHeight * IMAGE_CHANNELS * sizeof(unsigned char);
-	unsigned char* inputData, * outputData;
-
-	// Allocate memory and copy data
-	{
-		cudaMallocManaged(&inputData, allocImageSize);
-		cudaMallocManaged(&outputData, allocImageSize);
-
-		cudaMemcpy(inputData, inputImage.data, allocImageSize, cudaMemcpyHostToDevice);
-	}
-
-	dim3 dimGrid(ceil((float)imageWidth / BLOCK_SIZE), ceil((float)imageHeight / BLOCK_SIZE), 1);
+	int imageWidth = inputImage.cols, imageHeight = inputImage.rows;
+	int allocImageSize = inputImage.cols * inputImage.rows * IMAGE_CHANNELS * sizeof(unsigned char);
+	
+	dim3 dimGrid(ceil((float)inputImage.cols / BLOCK_SIZE), ceil((float)inputImage.rows / BLOCK_SIZE), 1);
 	dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE, 1);
 
+	if (type == MemoryType::Texture)
+	{
+		cudaChannelFormatDesc textureDescription = cudaCreateChannelDesc<unsigned int>();
+		cudaBindTexture(0, deviceInputTexture, inputData, textureDescription, allocImageSize);
+	}
+
+	// mark the average time
+	for (int i = 0; i < ITERATION_NUM; i++)
 	{
 		auto start = std::chrono::high_resolution_clock::now();
 
-		GlobalMemKernelConvolution <<<dimGrid, dimBlock>>> (inputData, outputData, imageWidth, imageHeight);
+		switch (type)
+		{
+			case MemoryType::Global:
+			{
+				GlobalMemKernelConvolution <<<dimGrid, dimBlock>>> (inputData, outputData, imageWidth, imageHeight);
+				break;
+			}
+			case MemoryType::Shared:
+			{
+				SharedMemKernelConvolution <<<dimGrid, dimBlock>>> (inputData, outputData, imageWidth, imageHeight);
+				break;
+			}
+
+			case MemoryType::Texture:
+			{
+				TextureMemKernelConvolution <<<dimGrid, dimBlock>>> (outputData, imageWidth, imageHeight);
+				break;
+			}
+		}
 
 		auto timeElapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count();
-		std::cout << "Convolution with global memory: elapsed time " << timeElapsed << " microseconds" << std::endl;
+		totalTimeElapsed += timeElapsed;
 	}
+
+	std::cout << "Convolution with " << outputImageName << " memory: average elapsed time " << (float) totalTimeElapsed / ITERATION_NUM << " microseconds" << std::endl;
 
 	// Create new image
-	cudaMemcpy(outputImage.data, outputData, allocImageSize, cudaMemcpyDeviceToHost);
-	cv::imwrite("./src/task2/OutputGlobalMemory.png", outputImage);
-
-	// Free memory
-	cudaFree(inputData);
-	cudaFree(outputData);
-}
-
-
-static void BlurImageWithSharedMemory(const cv::Mat3b& inputImage, int imageWidth, int imageHeight)
-{
-	cv::Mat3b outputImage = inputImage.clone();
-
-	int allocImageSize = imageWidth * imageHeight * IMAGE_CHANNELS * sizeof(unsigned char);
-	unsigned char* inputData, * outputData;
-
-	// Allocate memory and copy data
 	{
-		cudaMallocManaged(&inputData, allocImageSize);
-		cudaMallocManaged(&outputData, allocImageSize);
-
-		cudaMemcpy(inputData, inputImage.data, allocImageSize, cudaMemcpyHostToDevice);
+		cudaMemcpy(outputImage.data, outputData, allocImageSize, cudaMemcpyDeviceToHost);
+		cv::imwrite("./src/task2/Output" + outputImageName + "Memory.png", outputImage);
 	}
-
-	dim3 dimGrid(ceil((float)imageWidth / BLOCK_SIZE), ceil((float)imageHeight / BLOCK_SIZE), 1);
-	dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE, 1);
-
+	
+	if (type == MemoryType::Texture)
 	{
-		auto start = std::chrono::high_resolution_clock::now();
-
-		SharedMemKernelConvolution <<<dimGrid, dimBlock>>> (inputData, outputData, imageWidth, imageHeight);
-
-		auto timeElapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count();
-		std::cout << "Convolution with shared memory: elapsed time " << timeElapsed << " microseconds" << std::endl;
+		cudaUnbindTexture(deviceInputTexture);
 	}
-
-	// Create new image
-	cudaMemcpy(outputImage.data, outputData, allocImageSize, cudaMemcpyDeviceToHost);
-	cv::imwrite("./src/task2/OutputSharedMemory.png", outputImage);
-
-	// Free memory
-	cudaFree(inputData);
-	cudaFree(outputData);
-}
-
-
-static void BlurImageWithTextureMemory(const cv::Mat3b& inputImage, int imageWidth, int imageHeight)
-{
-	//// TO DO
-	//cv::Mat3b outputImage = inputImage.clone();
-	//cudaArray_t inputTextureData;
-	//
-	//int allocImageSize = imageWidth * imageHeight * IMAGE_CHANNELS * sizeof(unsigned char);
-	//unsigned char* * outputData;
-	//
-	//// Allocate memory and copy data
-	//{
-	//	cudaDeviceReset();
-	//
-	//	cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc(32, 0, 0, 0, cudaChannelFormatKindFloat);
-	//
-	//	cudaMallocManaged(&inputTextureData, allocImageSize);
-	//	cudaMallocManaged(&outputData, allocImageSize);
-	//
-	//	//cudaMemcpy(inputData, inputImage.data, allocImageSize, cudaMemcpyHostToDevice);
-	//}
-	//
-	//dim3 dimGrid(ceil((float)imageWidth / BLOCK_SIZE), ceil((float)imageHeight / BLOCK_SIZE), 1);
-	//dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE, 1);
-	//
-	//{
-	//	auto start = std::chrono::high_resolution_clock::now();
-	//
-	//	TextureMemKernelConvolution <<<dimGrid, dimBlock>>> (inputData, outputData, imageWidth, imageHeight);
-	//
-	//	auto timeElapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count();
-	//	std::cout << "Convolution with texture memory: elapsed time " << timeElapsed << " microseconds" << std::endl;
-	//}
-	//
-	//// Create new image
-	//cudaMemcpy(outputImage.data, outputData, allocImageSize, cudaMemcpyDeviceToHost);
-	//cv::imwrite("./src/task2/OutputTextureMemory.png", outputImage);
-	//
-	//// Free memory
-	//cudaFree(outputData);
 }
 
 
 void secondTask::Blur2DImage(std::string pathToImage)
 {
 	cv::Mat3b inputImage = cv::imread(pathToImage);
+	cv::Mat3b ouputImage = inputImage.clone();
 
-	cudaDeviceReset();
-	// special for const mem
-	cudaMemcpyToSymbol(deviceConstantKernel, hostKernel, KERNEL_SIZE * KERNEL_SIZE * sizeof(float));
+	int allocImageSize = inputImage.cols * inputImage.rows * IMAGE_CHANNELS * sizeof(unsigned char); 
+	unsigned char* inputData, * outputData;
 
-	BlurImageWithGlobalMemory(inputImage, inputImage.cols, inputImage.rows);
-	BlurImageWithSharedMemory(inputImage, inputImage.cols, inputImage.rows);
-	//BlurImageWithTextureMemory(inputImage, inputImage.cols, inputImage.rows);
+	// Allocate memory and copy data
+	{
+		cudaDeviceReset();
+		cudaMallocManaged(&inputData, allocImageSize);
+		cudaMallocManaged(&outputData, allocImageSize);
 
-	cudaFree(deviceConstantKernel);
+		cudaMemcpy(inputData, inputImage.data, allocImageSize, cudaMemcpyHostToDevice);
+		cudaMemcpyToSymbol(deviceConstantKernel, hostKernel, KERNEL_SIZE * KERNEL_SIZE * sizeof(float));
+	}
+
+	BlurImageWithFixedMemoryType(inputImage, inputData, ouputImage, outputData, MemoryType::Global);
+
+	// Free memory
+	{
+		cudaFree(inputData);
+		cudaFree(outputData);
+		cudaFree(deviceConstantKernel);
+	}
 }
