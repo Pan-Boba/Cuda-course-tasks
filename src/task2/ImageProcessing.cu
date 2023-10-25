@@ -2,7 +2,7 @@
 
 #define KERNEL_SIZE 3
 #define IMAGE_CHANNELS 3
-#define BLOCK_SIZE 16
+#define BLOCK_SIZE 64
 #define SHARED_BLOCK_SIZE (BLOCK_SIZE - 1 + KERNEL_SIZE)
 #define ITERATION_NUM 1
 
@@ -195,12 +195,14 @@ static void BlurImageWithFixedMemoryType(const cv::Mat3b& inputImage, const unsi
 			}
 		}
 
+		cudaDeviceSynchronize();
+
 		auto timeElapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count();
 		totalTimeElapsed += timeElapsed;
 	}
 
 	std::cout << "Convolution with " << outputImageName << " memory: average elapsed time " << (float) totalTimeElapsed / ITERATION_NUM << " microseconds" << std::endl;
-
+	
 	// Create new image
 	{
 		cudaMemcpy(outputImage.data, outputData, allocImageSize, cudaMemcpyDeviceToHost);
@@ -232,7 +234,10 @@ void secondTask::Blur2DImage(std::string pathToImage)
 		cudaMemcpyToSymbol(deviceConstantKernel, hostKernel, KERNEL_SIZE * KERNEL_SIZE * sizeof(float));
 	}
 
-	BlurImageWithFixedMemoryType(inputImage, inputData, ouputImage, outputData, MemoryType::Global);
+	for (int i = 0; i < 3; ++i)
+	{
+		BlurImageWithFixedMemoryType(inputImage, inputData, ouputImage, outputData, (MemoryType) i);
+	}
 
 	// Free memory
 	{
