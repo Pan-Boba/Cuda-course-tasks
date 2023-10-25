@@ -35,4 +35,4 @@ Tasks from http://ccfit.nsu.ru/arom/en_207.
 >Convolution with texture memory: TO DO
 
 
-![Results](https://github.com/Pan-Boba/Cuda-course-tasks/assets/102728548/58bbffda-3306-488c-99c8-01302f957529)
+![Results](https://github.com/Pan-Boba/Cuda-course-tasks/assets/102728548/801f66a0-c44b-4590-860c-19f7578db79c)
