@@ -39,18 +39,18 @@ Task:
 
 |  BLOCK_SIZE| 16 | 32 | 64 |
 | :---:   | :---: | :---: | :---: |
-| Global Memory, usec | 301 | 283 | 290 |
-| Shared Memory, usec | 301 | 283 | 290 |
-| Texture 1D Memory, usec | 301 | 283 | 290 |
+| Global Memory, usec | 148 | 150 | 68 |
+| Shared Memory, usec | 140 | 180 | 52 |
+| Texture 1D Memory, usec | 287 | 300 | 50 |
 
 Из таблицы видно TO DO. При `BLOCK_SIZE` равным 64 также посчитано среднее время выполнения каждого из при последовательном запуске каждого из алгоритмов по 3 раза:
 
 ```
-Convolution with global memory: elapsed time 69 microseconds
+Convolution with Global memory: average elapsed time 83 microseconds
 
-Convolution with shared memory: elapsed time 34 microseconds
+Convolution with Shared memory: average elapsed time 146 microseconds
 
-Convolution with texture memory: TO DO
+Convolution with Texture memory: average elapsed time 107 microseconds
 ```
 
 Пример использования фильтра размытия на изображении: 
