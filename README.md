@@ -24,11 +24,11 @@ Tasks from http://ccfit.nsu.ru/arom/en_207.
 # 2 task results
 Прежде запуска необходимо установить последнюю версию библиотеку [`OpenCv`](https://opencv.org/releases/) на диск C и выставить переменную окружения c именем `OpenCV_DIR` и значением `C:/opencv/build`, при возникновении проблем можно воспользоваться [этой инструкцией](https://habr.com/ru/articles/722918/).  Для свертки изображения "/Cuda-course-tasks/src/task2/ImageSample.png" используется ядро [**Gaussian blur 3×3**](https://en.wikipedia.org/wiki/Kernel_(image_processing)).
 
-Результат обработки для 3х версий светки сохраняются в "/Cuda-course-tasks/build/src/task2" под именами: **OutputConstMemory.png**; **OutputSharedMemory.png**; **OutputTextureMemory.png**.
+Результат обработки для 3х версий светки сохраняются в "/Cuda-course-tasks/build/src/task2" под именами: **OutputGlobalMemory.png**; **OutputSharedMemory.png**; **OutputTextureMemory.png**.
 
 Результаты получены при запуске локально на видеокарте NVIDIA GeForce RTX 3050:
 
->Convolution with constant memory: elapsed time 69 microseconds
+>Convolution with global memory: elapsed time 69 microseconds
 >
 >Convolution with shared memory: elapsed time 34 microseconds
 >
