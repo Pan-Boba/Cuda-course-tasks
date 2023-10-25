@@ -1,9 +1,9 @@
 #include "ImageProcessing.cuh"
 
-#define TILE_WIDTH 16
 #define KERNEL_SIZE 3
 #define IMAGE_CHANNELS 3
-#define SHARED_BLOCK_SIZE (TILE_WIDTH - 1 + KERNEL_SIZE)
+#define BLOCK_SIZE 16
+#define SHARED_BLOCK_SIZE (BLOCK_SIZE - 1 + KERNEL_SIZE)
 
 using namespace secondTask;
 
@@ -51,10 +51,12 @@ __global__ static void SharedMemKernelConvolution(const unsigned char* inputImag
 
 	for (int channel = 0; channel < IMAGE_CHANNELS; channel++)
 	{
-		int destCol = (threadIdx.y * TILE_WIDTH + threadIdx.x) / SHARED_BLOCK_SIZE;
-		int destRow = (threadIdx.y * TILE_WIDTH + threadIdx.x) % SHARED_BLOCK_SIZE;
-		int srcCol = blockIdx.y * TILE_WIDTH + destCol - KERNEL_SIZE / 2;
-		int srcRow = blockIdx.x * TILE_WIDTH + destRow - KERNEL_SIZE / 2;
+		// https://stackoverflow.com/questions/21380549/upload-data-in-shared-memory-for-convolution-kernel
+
+		int destCol = (threadIdx.y * BLOCK_SIZE + threadIdx.x) / SHARED_BLOCK_SIZE;
+		int destRow = (threadIdx.y * BLOCK_SIZE + threadIdx.x) % SHARED_BLOCK_SIZE;
+		int srcCol = blockIdx.y * BLOCK_SIZE + destCol - KERNEL_SIZE / 2;
+		int srcRow = blockIdx.x * BLOCK_SIZE + destRow - KERNEL_SIZE / 2;
 
 		if (srcCol >= 0 && srcCol < height && srcRow >= 0 && srcRow < width)
 		{
@@ -65,10 +67,10 @@ __global__ static void SharedMemKernelConvolution(const unsigned char* inputImag
 			sharedInputImageBlock[destCol][destRow] = 0;
 		}
 
-		destCol = (threadIdx.y * TILE_WIDTH + threadIdx.x + TILE_WIDTH * TILE_WIDTH) / SHARED_BLOCK_SIZE;
-		destRow = (threadIdx.y * TILE_WIDTH + threadIdx.x + TILE_WIDTH * TILE_WIDTH) % SHARED_BLOCK_SIZE;
-		srcCol = blockIdx.y * TILE_WIDTH + destCol - KERNEL_SIZE / 2;
-		srcRow = blockIdx.x * TILE_WIDTH + destRow - KERNEL_SIZE / 2;
+		destCol = (threadIdx.y * BLOCK_SIZE + threadIdx.x + BLOCK_SIZE * BLOCK_SIZE) / SHARED_BLOCK_SIZE;
+		destRow = (threadIdx.y * BLOCK_SIZE + threadIdx.x + BLOCK_SIZE * BLOCK_SIZE) % SHARED_BLOCK_SIZE;
+		srcCol = blockIdx.y * BLOCK_SIZE + destCol - KERNEL_SIZE / 2;
+		srcRow = blockIdx.x * BLOCK_SIZE + destRow - KERNEL_SIZE / 2;
 
 		if (srcCol >= 0 && srcCol < height && srcRow >= 0 && srcRow < width)
 		{
@@ -91,8 +93,8 @@ __global__ static void SharedMemKernelConvolution(const unsigned char* inputImag
 			}
 		}
 
-		int row = blockIdx.y * TILE_WIDTH + threadIdx.y;
-		int col = blockIdx.x * TILE_WIDTH + threadIdx.x;
+		int row = blockIdx.y * BLOCK_SIZE + threadIdx.y;
+		int col = blockIdx.x * BLOCK_SIZE + threadIdx.x;
 		if (row < height && col < width)
 		{
 			resultImage[IMAGE_CHANNELS * (row * width + col) + channel] = sum;
@@ -103,12 +105,19 @@ __global__ static void SharedMemKernelConvolution(const unsigned char* inputImag
 }
 
 
-static void BlurImageWithConstantMemory(const cv::Mat3b& inputImage)
+__global__ static void TextureMemKernelConvolution(unsigned char* resultImage, int width, int height)
+{
+	// TO DO
+
+}
+
+
+
+static void BlurImageWithGlobalMemory(const cv::Mat3b& inputImage, int imageWidth, int imageHeight)
 {
 	cv::Mat3b outputImage = inputImage.clone();
 
-	int imageWidth = inputImage.cols, imageHeight = inputImage.rows;
-	int allocImageSize = imageWidth * imageHeight * IMAGE_CHANNELS * sizeof(unsigned char), allocKernelSize = KERNEL_SIZE * KERNEL_SIZE * sizeof(float);
+	int allocImageSize = imageWidth * imageHeight * IMAGE_CHANNELS * sizeof(unsigned char);
 	unsigned char* inputData, * outputData;
 
 	// Allocate memory and copy data
@@ -119,12 +128,10 @@ static void BlurImageWithConstantMemory(const cv::Mat3b& inputImage)
 		cudaMallocManaged(&outputData, allocImageSize);
 
 		cudaMemcpy(inputData, inputImage.data, allocImageSize, cudaMemcpyHostToDevice);
-		// special for const mem
-		cudaMemcpyToSymbol(deviceConstantKernel, hostKernel, allocKernelSize);
 	}
 
-	dim3 dimGrid(ceil((float)imageWidth / TILE_WIDTH), ceil((float)imageHeight / TILE_WIDTH));
-	dim3 dimBlock(TILE_WIDTH, TILE_WIDTH, 1);
+	dim3 dimGrid(ceil((float)imageWidth / BLOCK_SIZE), ceil((float)imageHeight / BLOCK_SIZE), 1);
+	dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE, 1);
 
 	{
 		auto start = std::chrono::high_resolution_clock::now();
@@ -142,16 +149,14 @@ static void BlurImageWithConstantMemory(const cv::Mat3b& inputImage)
 	// Free memory
 	cudaFree(inputData);
 	cudaFree(outputData);
-	cudaFree(deviceConstantKernel);
 }
 
 
-static void BlurImageWithSharedMemory(const cv::Mat3b& inputImage)
+static void BlurImageWithSharedMemory(const cv::Mat3b& inputImage, int imageWidth, int imageHeight)
 {
 	cv::Mat3b outputImage = inputImage.clone();
 
-	int imageWidth = inputImage.cols, imageHeight = inputImage.rows;
-	int allocImageSize = imageWidth * imageHeight * IMAGE_CHANNELS * sizeof(unsigned char), allocKernelSize = KERNEL_SIZE * KERNEL_SIZE * sizeof(float);
+	int allocImageSize = imageWidth * imageHeight * IMAGE_CHANNELS * sizeof(unsigned char);
 	unsigned char* inputData, * outputData;
 
 	// Allocate memory and copy data
@@ -162,12 +167,10 @@ static void BlurImageWithSharedMemory(const cv::Mat3b& inputImage)
 		cudaMallocManaged(&outputData, allocImageSize);
 
 		cudaMemcpy(inputData, inputImage.data, allocImageSize, cudaMemcpyHostToDevice);
-		// special for const mem
-		cudaMemcpyToSymbol(deviceConstantKernel, hostKernel, allocKernelSize);
 	}
 
-	dim3 dimGrid(ceil((float)imageWidth / TILE_WIDTH), ceil((float)imageHeight / TILE_WIDTH));
-	dim3 dimBlock(TILE_WIDTH, TILE_WIDTH, 1);
+	dim3 dimGrid(ceil((float)imageWidth / BLOCK_SIZE), ceil((float)imageHeight / BLOCK_SIZE), 1);
+	dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE, 1);
 
 	{
 		auto start = std::chrono::high_resolution_clock::now();
@@ -185,15 +188,26 @@ static void BlurImageWithSharedMemory(const cv::Mat3b& inputImage)
 	// Free memory
 	cudaFree(inputData);
 	cudaFree(outputData);
-	cudaFree(deviceConstantKernel);
 }
 
+
+static void BlurImageWithTextureMemory(const cv::Mat3b& inputImage, int imageWidth, int imageHeight)
+{
+	// TO DO
+}
 
 
 void secondTask::Blur2DImage(std::string pathToImage)
 {
+	int allocKernelSize = KERNEL_SIZE * KERNEL_SIZE * sizeof(float);
 	cv::Mat3b inputImage = cv::imread(pathToImage);
 
-	BlurImageWithConstantMemory(inputImage);
-	BlurImageWithSharedMemory(inputImage);
+	// special for const mem
+	cudaMemcpyToSymbol(deviceConstantKernel, hostKernel, allocKernelSize);
+
+	BlurImageWithGlobalMemory(inputImage, inputImage.cols, inputImage.rows);
+	BlurImageWithSharedMemory(inputImage, inputImage.cols, inputImage.rows);
+	BlurImageWithTextureMemory(inputImage, inputImage.cols, inputImage.rows);
+
+	cudaFree(deviceConstantKernel);
 }
