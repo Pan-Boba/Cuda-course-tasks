@@ -8,7 +8,7 @@ To build solution run **build.sh**, upon compling new directory *"/build"* is cr
 
 # 1 task results
 Task:
->Allocate GPU array arr of $10^8 float elements and initialize it with the kernel as follows: $arr[i] = \sin((i \\% 360) \cdot \pi / 180)$. Copy array in CPU memory and count error as $err = \sum_i |\sin((i \\% 360) \cdot \pi/180) - arr[i]| / 10^8$. Investigate the dependence of the use of functions: *sin*, *sinf*, *__sinf*. Explain the result. Check the result for array of double data type.
+>Allocate GPU array arr of $10^8$ float elements and initialize it with the kernel as follows: $arr[i] = \sin((i \\% 360) \cdot \pi / 180)$. Copy array in CPU memory and count error as $err = \sum_i |\sin((i \\% 360) \cdot \pi/180) - arr[i]| / 10^8$. Investigate the dependence of the use of functions: *sin*, *sinf*, *__sinf*. Explain the result. Check the result for array of double data type.
 
 Инициализация $10^8$ элементов массива происходит параллельно на GPU, а вот вычисление итоговой double ошибки на CPU, что занимает довольно много времени.
 
