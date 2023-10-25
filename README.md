@@ -33,3 +33,6 @@ Tasks from http://ccfit.nsu.ru/arom/en_207.
 >Convolution with shared memory: elapsed time 34 microseconds
 >
 >Convolution with texture memory: TO DO
+
+
+![Results](https://github.com/Pan-Boba/Cuda-course-tasks/assets/102728548/58bbffda-3306-488c-99c8-01302f957529)
