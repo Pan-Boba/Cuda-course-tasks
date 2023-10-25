@@ -37,14 +37,13 @@ Task:
 Все результаты получены при запуске локально на видеокарте *NVIDIA GeForce RTX 3050* и сильно зависят от значения `BLOCK_SIZE`, а также последовательности запусков (из-за оптимизации и кэширования). При независимом запуске различных версий свертки получены следующие результаты по времени (в мксек) от значения `BLOCK_SIZE`:
 
 
- BLOCK_SIZE| 16 | 32 | 64
---- | --- | --- | --- 
-Global Memory, usec | 301 | 283 | 290
---- | --- | --- | --- 
-Shared Memory, usec | 301 | 283 | 290 
---- | --- | --- | --- 
-Texture 1D Memory, usec | 301 | 283 | 290 
+|  BLOCK_SIZE| 16 | 32 | 64 |
+| :---:   | :---: | :---: | :---: |
+| Global Memory, usec | 301 | 283 | 290 |
+| Shared Memory, usec | 301 | 283 | 290 |
+| Texture 1D Memory, usec | 301 | 283 | 290 |
 
+Из таблицы видно TO DO. При `BLOCK_SIZE` равным 64 также посчитано среднее время выполнения каждого из при последовательном запуске каждого из алгоритмов по 3 раза:
 
 ```
 Convolution with global memory: elapsed time 69 microseconds
@@ -54,10 +53,7 @@ Convolution with shared memory: elapsed time 34 microseconds
 Convolution with texture memory: TO DO
 ```
 
-
+Пример использования фильтра размытия на изображении: 
 <figure>
-  <img src="https://github.com/Pan-Boba/Cuda-course-tasks/assets/102728548/801f66a0-c44b-4590-860c-19f7578db79c;auto=format&amp;fit=crop&amp;w=1000&amp;q=80" alt="">  
-  <figcaption>
-    Пример применения фильтра размытия к изображению.
-  </figcaption>
+  <img src="https://github.com/Pan-Boba/Cuda-course-tasks/assets/102728548/801f66a0-c44b-4590-860c-19f7578db79c;auto=format&amp;fit=crop&amp;w=1000&amp;q=80" alt="">
 </figure>
