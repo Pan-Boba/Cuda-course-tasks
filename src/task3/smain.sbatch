@@ -19,7 +19,7 @@ echo $SLURM_JOB_NODELIST
 echo $SLURM_CPUS_PER_TASK
 echo $SLURM_NTASKS	
 
-nvcc main.cu -o lab3 -lpng -lpng16
+nvcc main.cu -o lab3 -lpng -lpng16 -Xcompiler -fopenmp
 ./lab3
 
 sleep 10
