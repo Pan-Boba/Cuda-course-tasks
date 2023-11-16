@@ -66,8 +66,8 @@ Task:
 
 Результаты получены для случая **2х** параллельных GPU:
 ```
-Convolution with Global memory: average elapsed time 23.666 microseconds
-Convolution with Global memory: average elapsed time 21.672 microseconds
+Convolution with Global memory: average elapsed time 23.6667 microseconds
+Convolution with Global memory: average elapsed time 21.3333 microseconds
 
 Convolution with Shared memory: average elapsed time 23.3333 microseconds
 Convolution with Shared memory: average elapsed time 20.6667 microseconds
