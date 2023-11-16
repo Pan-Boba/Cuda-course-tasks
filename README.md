@@ -64,7 +64,7 @@ Task:
 
 Для данного задания производился запуск *main.cu* на удаленном сервере **gpuserv**, для чего были созданы *smain.sbatch* и *makefile*. Изображения для обработки используется из предыдущего задания, загрузка и запись с ним проводятся с помощью [`libpng`](https://www.libpng.org/pub/png/libpng.html), при этом `BLOCK_SIZE` установлен равным 16.
 
-Результаты получены для случая **2х** параллельных GPU:
+Результаты получены для случая **2х** параллельных GPU при последовательном запуске каждого из алгоритмов по 3 раза:
 ```
 Convolution with Global memory: average elapsed time 23.6667 microseconds
 Convolution with Global memory: average elapsed time 21.3333 microseconds
@@ -76,7 +76,7 @@ Convolution with Texture memory: average elapsed time 35.3333 microseconds
 Convolution with Texture memory: average elapsed time 31 microseconds
 ```
 
-При запуске второго задания на этом же сервере, получена следующая таблица, содержащая время выполнения вертки с округлением до *int*:
+При запуске второго задания на этом же сервере, получена следующая таблица, содержащая время выполнения свертки с округлением до *int*:
 
 |Num of GPU| Memory type | Global | Shared | Texture 1D |
 | :---: | :---: | :---: | :---: | :---: |
