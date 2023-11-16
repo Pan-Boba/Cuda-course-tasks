@@ -56,3 +56,31 @@ Convolution with Texture memory: average elapsed time 234 microseconds
 <figure>
   <img src="https://github.com/Pan-Boba/Cuda-course-tasks/assets/102728548/801f66a0-c44b-4590-860c-19f7578db79c;auto=format&amp;fit=crop&amp;w=1000&amp;q=80" alt="">
 </figure>
+
+
+# 3 task results
+Task:
+>Modify the previous program so as to use all GPUs available for the program. The program should determine the amount of available GPU and distribute the work on them.
+
+Для данного задания производился запуск *main.cu* на удаленном сервере **gpuserv**, для чего были созданы *smain.sbatch* и *makefile*. Изображения для обработки используется из предыдущего задания, загрузка и запись с ним проводятся с помощью [`libpng`](https://www.libpng.org/pub/png/libpng.html), при этом `BLOCK_SIZE` установлен равным 16.
+
+Результаты получены для случая 2х параллельных GPU:
+```
+Convolution with Global memory: average elapsed time 23.666 microseconds
+Convolution with Global memory: average elapsed time 21.672 microseconds
+
+Convolution with Shared memory: average elapsed time 23.3333 microseconds
+Convolution with Shared memory: average elapsed time 20.6667 microseconds
+
+Convolution with Texture memory: average elapsed time 35.3333 microseconds
+Convolution with Texture memory: average elapsed time 31 microseconds
+```
+
+При запуске второго задания на этом же сервере, получена следующая таблица (с округлением до int):
+
+|Num of GPU|  Memory type | Global | Shared | Texture 1D |
+| :---:   || :---:   | :---: | :---: | :---: |
+| 1 | Time, usec | 105 | 107 | 114 |
+| 2 | Time, usec | 45 | 44 | 66 |
+
+Таким образом, получено ускорение обработки в 2 раза (без учета времени на доп. копирование).
