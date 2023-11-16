@@ -8,7 +8,7 @@ To build solution run **build.sh**, upon compling new directory *"/build"* is cr
 
 # 1 task results
 Task:
->Allocate GPU array arr of $10^8 float elements and initialize it with the kernel as follows: $arr[i] = \sin((i \\% 360) \cdot \pi / 180)$. Copy array in CPU memory and count error as $err = \sum_i |\sin((i \\% 360) \cdot \pi/180) - arr[i]| / 10^8$. Investigate the dependence of the use of functions: *sin*, *sinf*, *__sinf*. Explain the result. Check the result for array of double data type.
+>Allocate GPU array arr of $10^8$ float elements and initialize it with the kernel as follows: $arr[i] = \sin((i \\% 360) \cdot \pi / 180)$. Copy array in CPU memory and count error as $err = \sum_i |\sin((i \\% 360) \cdot \pi/180) - arr[i]| / 10^8$. Investigate the dependence of the use of functions: *sin*, *sinf*, *__sinf*. Explain the result. Check the result for array of double data type.
 
 Инициализация $10^8$ элементов массива происходит параллельно на GPU, а вот вычисление итоговой double ошибки на CPU, что занимает довольно много времени.
 
@@ -34,24 +34,23 @@ Task:
 
 Итоговые изображения, полученные для 3-х версий светки сохраняются в *"/Cuda-course-tasks/build/src/task2"* под именами: **OutputGlobalMemory.png**; **OutputSharedMemory.png**; **OutputTextureMemory.png**.
 
-Все результаты получены при запуске локально на видеокарте *NVIDIA GeForce RTX 3050* и сильно зависят от значения `BLOCK_SIZE`, а также последовательности запусков (из-за оптимизации и кэширования). При независимом запуске различных версий свертки получены следующие результаты по времени (в мксек) от значения `BLOCK_SIZE`:
+Все результаты получены при запуске локально на видеокарте *NVIDIA GeForce RTX 3050* и сильно зависят от последовательности запусков (из-за оптимизации и кэширования). При независимом запуске различных версий свертки получены следующие результаты по времени (в мксек) при  `BLOCK_SIZE` = 16:
 
 
-|  BLOCK_SIZE| 16 | 32 | 64 |
+|  Memory type | Global | Shared | Texture 1D |
 | :---:   | :---: | :---: | :---: |
-| Global Memory, usec | 148 | 150 | 68 |
-| Shared Memory, usec | 140 | 180 | 52 |
-| Texture 1D Memory, usec | 287 | 300 | 50 |
+| Time, usec | 168 | 160 | 287 |
 
-Из таблицы видно TO DO. При `BLOCK_SIZE` равным 64 также посчитано среднее время выполнения каждого из при последовательном запуске каждого из алгоритмов по 3 раза:
+Из таблицы видно, что Shared память работает несколько быстрее остальных, но для нее расходуется время для переноса данных в память блоков. Использование texture-памяти не приносит особых плодов, она, очевидно, должна быть медленее разделяемой памяти, так как является общей внутри grid-а, но в тоже время в литературе указвается, что ее скорость работы выше чем у глобальной.  При `BLOCK_SIZE` равным 16 также посчитано среднее время выполнения каждого из при последовательном запуске каждого из алгоритмов по 3 раза:
 
 ```
-Convolution with Global memory: average elapsed time 83 microseconds
+Convolution with Global memory: average elapsed time 165.667 microseconds
 
-Convolution with Shared memory: average elapsed time 146 microseconds
+Convolution with Shared memory: average elapsed time 163.667 microseconds
 
-Convolution with Texture memory: average elapsed time 107 microseconds
+Convolution with Texture memory: average elapsed time 234 microseconds
 ```
+Ускорение расчета для texture-памяти можно попробовать объяснить кэшированием в Texture Unit-е.
 
 Пример использования фильтра размытия на изображении: 
 <figure>
