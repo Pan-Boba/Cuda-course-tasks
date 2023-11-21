@@ -66,14 +66,14 @@ Task:
 
 Результаты получены для случая **2х** параллельных GPU при последовательном запуске каждого из алгоритмов по 3 раза:
 ```
-Convolution with Global memory: average elapsed time 23.6667 microseconds
-Convolution with Global memory: average elapsed time 21.3333 microseconds
+Convolution with Global memory: average elapsed time 46.6667 microseconds
+Convolution with Global memory: average elapsed time 44.3333 microseconds
 
-Convolution with Shared memory: average elapsed time 23.3333 microseconds
-Convolution with Shared memory: average elapsed time 20.6667 microseconds
+Convolution with Shared memory: average elapsed time 25.3333 microseconds
+Convolution with Shared memory: average elapsed time 23.6667 microseconds
 
-Convolution with Texture memory: average elapsed time 35.3333 microseconds
-Convolution with Texture memory: average elapsed time 31 microseconds
+Convolution with Texture memory: average elapsed time 68.3333 microseconds
+Convolution with Texture memory: average elapsed time 64 microseconds
 ```
 
 При запуске второго задания на этом же сервере, получена следующая таблица, содержащая время выполнения свертки с округлением до *int*:
