@@ -84,3 +84,16 @@ Convolution with Texture memory: average elapsed time 64 microseconds
 | 2 | Time, usec | 45 | 44 | 66 |
 
 Таким образом, получено ускорение обработки в **2** раза, без учета времени на дополнительное копирование.
+
+
+# 4 task results
+Task:
+>Use the method of least squares to find a circle in the image. For each random sample points organize their processing on the GPU. Random sampling arrange with library CURAND.
+>
+>Input: an image size of 640x480 (for example, a speed limit sign), the number of samples N, the number of elements in each sample K.
+>
+>Output: The image with a circle painted on it.
+>Recommendation: before processing apply Sobel filter for edge detection and consider the point at which the normalized color value>0.5.
+
+Прежде запуска необходимо установить последнюю версию библиотеку [`OpenCv`](https://opencv.org/releases/) на диск C и выставить переменную окружения c именем `OpenCV_DIR` и значением `C:/opencv/build`, при возникновении проблем можно воспользоваться [этой инструкцией](https://habr.com/ru/articles/722918/).
+
