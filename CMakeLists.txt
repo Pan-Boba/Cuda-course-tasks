@@ -8,14 +8,17 @@ set(CMAKE_SUPPRESS_REGENERATION true)
 
 add_subdirectory(src/task1)
 add_subdirectory(src/task2)
+add_subdirectory(src/task4)
 
 target_link_libraries(CudaCourseTasks PUBLIC ArrayAllocation)
 target_link_libraries(CudaCourseTasks PUBLIC ImageProcessing)
+target_link_libraries(CudaCourseTasks PUBLIC FindCircle)
 
 target_include_directories(CudaCourseTasks PUBLIC
                           "${PROJECT_BINARY_DIR}"
                           "${PROJECT_SOURCE_DIR}/src/task1"
                           "${PROJECT_SOURCE_DIR}/src/task2"
+                          "${PROJECT_SOURCE_DIR}/src/task4"
                           )
 
 

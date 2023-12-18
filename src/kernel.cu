@@ -2,6 +2,7 @@
 #include <string>
 #include "task1\ArrayAllocation.cuh"
 #include "task2\ImageProcessing.cuh"
+#include "task4\FindCircle.cuh"
 
 
 void RunTask(int taskNumber)
@@ -21,6 +22,13 @@ void RunTask(int taskNumber)
 			std::cout << "Second task completed.\n" << std::endl;
 			break;
 		}
+		case 4:
+		{
+			std::cout << "Running the fourth task...\n" << std::endl;
+			fourthTask::FindCircle("./src/task4/InputImage.png");
+			std::cout << "Fourth task completed.\n" << std::endl;
+			break;
+		}
 		default:
 		{
 			std::cout << "Invalid number\n" << std::endl;
@@ -34,7 +42,7 @@ int main()
 	std::string line;
 	int numberOfTask;
 
-	std::cout << "Enter task number (1, 2): ";
+	std::cout << "Enter task number (1, 2, 4): ";
 	std::getline(std::cin, line);
 
 	try

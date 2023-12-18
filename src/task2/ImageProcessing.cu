@@ -218,7 +218,7 @@ static void BlurImageWithFixedMemoryType(const cv::Mat3b& inputImage, const unsi
 void secondTask::Blur2DImage(std::string pathToImage)
 {
 	cv::Mat3b inputImage = cv::imread(pathToImage);
-	cv::Mat3b ouputImage = inputImage.clone();
+	cv::Mat3b outputImage = inputImage.clone();
 
 	int allocImageSize = inputImage.cols * inputImage.rows * IMAGE_CHANNELS * sizeof(unsigned char); 
 	unsigned char* inputData, * outputData;
@@ -235,7 +235,7 @@ void secondTask::Blur2DImage(std::string pathToImage)
 
 	for (int i = 0; i < 3; ++i)
 	{
-		BlurImageWithFixedMemoryType(inputImage, inputData, ouputImage, outputData, (MemoryType) i);
+		BlurImageWithFixedMemoryType(inputImage, inputData, outputImage, outputData, (MemoryType) i);
 	}
 
 	// Free memory
