@@ -8,9 +8,9 @@
 #define BLUR_SIZE 17
 #define CIRCLE_THICKNESS 3
 #define N 5
-#define K 1000
+#define K 100
 #define THRESHOLD_RADIUS 5
-#define THRESHOLD_COUNT 50
+#define THRESHOLD_COUNT 800 //100 for inner circle
 
 using namespace fourthTask;
 
@@ -91,9 +91,10 @@ void GetCircleParametersLeastSquares(const std::vector<cv::Point>& points, cv::P
 	cv::Mat leftSideMatrix(2, 2, CV_64FC1, leftSideArray);
 
 	cv::Mat centerVector = leftSideMatrix.inv() * rightSideVector;
+	double dataX = centerVector.at<double>(0, 0), dataY = centerVector.at<double>(1, 0);
 
-	circleCenter = cv::Point(centerVector.data[1], centerVector.data[0]);
-	circleRadius = std::sqrt(centerVector.data[0] * centerVector.data[0] + centerVector.data[1] * centerVector.data[1] + (Suu + Svv) / pointsCount);
+	circleCenter = cv::Point((int) (dataX + averageX), (int) (dataY + averageY));
+	circleRadius = (int) std::sqrt(dataX * dataX + dataY * dataY + (Suu + Svv) / pointsCount);
 }
 
 
