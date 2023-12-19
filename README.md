@@ -97,7 +97,7 @@ Task:
 
 Прежде запуска необходимо установить последнюю версию библиотеку [`OpenCv`](https://opencv.org/releases/) на диск C и выставить переменную окружения c именем `OpenCV_DIR` и значением `C:/opencv/build`, при возникновении проблем можно воспользоваться [этой инструкцией](https://habr.com/ru/articles/722918/).
 
-Выделение границ изображения "/Cuda-course-tasks/src/task4/InputImage.png" проведено с помощью фильтра [`Canny`](https://en.wikipedia.org/wiki/Canny_edge_detector) и предварительного применения блюра с размером ядра `BLUR_SIZE`. Результат выделения:
+Выделение границ изображения *"/Cuda-course-tasks/src/task4/InputImage.png"* проведено с помощью фильтра [`Canny`](https://en.wikipedia.org/wiki/Canny_edge_detector) и предварительного применения блюра с размером ядра `BLUR_SIZE`. Результат выделения:
 <figure>
   <img src="https://github.com/Pan-Boba/Cuda-course-tasks/assets/102728548/6d9cec12-3f2a-448f-bcfa-907d58726784;auto=format&amp;fit=crop&amp;w=1000&amp;q=80" alt="">
 </figure>
