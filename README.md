@@ -97,7 +97,14 @@ Task:
 
 Прежде запуска необходимо установить последнюю версию библиотеку [`OpenCv`](https://opencv.org/releases/) на диск C и выставить переменную окружения c именем `OpenCV_DIR` и значением `C:/opencv/build`, при возникновении проблем можно воспользоваться [этой инструкцией](https://habr.com/ru/articles/722918/).
 
-Выделение границ проведено с помощью фильтра [`Canny`](https://en.wikipedia.org/wiki/Canny_edge_detector). Настраиваемые гиперпараметры для выделения круга: 
+Выделение границ проведено с помощью фильтра [`Canny`](https://en.wikipedia.org/wiki/Canny_edge_detector) и предварительного применения блюра с размером ядра `BLUR_SIZE`. 
+
+Результат выделения границ:
+<figure>
+  <img src="https://github.com/Pan-Boba/Cuda-course-tasks/assets/102728548/6d9cec12-3f2a-448f-bcfa-907d58726784;auto=format&amp;fit=crop&amp;w=1000&amp;q=80" alt="">
+</figure>
+
+Настраиваемые гиперпараметры для выделения круга: 
 
 `N` - количество первоначальных точек построения;
 
@@ -107,10 +114,9 @@ Task:
 
 `THRESHOLD_COUNT` - количество точек вблизи построенного круга, используется для оценки точности построения.
 
-
 Изображения с выделенным кругом и отфильтрованное с выделенными границами сохраняются в *"/Cuda-course-tasks/build/src/task4"* под именами: **OutputImage.png** и **FilteredImage.png**.
 
-Результат обработки исходного изображения получен при запуске локально на видеокарте *NVIDIA GeForce RTX 3050*:
+Результат обработки исходной картинки с дорожным знаком получен при запуске локально на видеокарте *NVIDIA GeForce RTX 3050*:
 <figure>
   <img src="https://github.com/Pan-Boba/Cuda-course-tasks/assets/102728548/3df5aede-8b0a-413c-b3fb-39c68f8bfc13;auto=format&amp;fit=crop&amp;w=1000&amp;q=80" alt="">
 </figure>
