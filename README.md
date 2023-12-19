@@ -32,7 +32,7 @@ Task:
 
 Прежде запуска необходимо установить последнюю версию библиотеку [`OpenCv`](https://opencv.org/releases/) на диск C и выставить переменную окружения c именем `OpenCV_DIR` и значением `C:/opencv/build`, при возникновении проблем можно воспользоваться [этой инструкцией](https://habr.com/ru/articles/722918/).  Для свертки изображения "/Cuda-course-tasks/src/task2/ImageSample.png" используется ядро [**Gaussian blur 3×3**](https://en.wikipedia.org/wiki/Kernel_(image_processing)).
 
-Итоговые изображения, полученные для 3-х версий светки сохраняются в *"/Cuda-course-tasks/build/src/task2"* под именами: **OutputGlobalMemory.png**; **OutputSharedMemory.png**; **OutputTextureMemory.png**.
+Итоговые изображения, полученные для 3-х версий светки, сохраняются в *"/Cuda-course-tasks/build/src/task2"* под именами: **OutputGlobalMemory.png**; **OutputSharedMemory.png**; **OutputTextureMemory.png**.
 
 Все результаты получены при запуске локально на видеокарте *NVIDIA GeForce RTX 3050* и сильно зависят от последовательности запусков (из-за оптимизации и кэширования). При независимом запуске различных версий свертки получены следующие результаты по времени (в мксек) при  `BLOCK_SIZE` = 16:
 
@@ -97,3 +97,20 @@ Task:
 
 Прежде запуска необходимо установить последнюю версию библиотеку [`OpenCv`](https://opencv.org/releases/) на диск C и выставить переменную окружения c именем `OpenCV_DIR` и значением `C:/opencv/build`, при возникновении проблем можно воспользоваться [этой инструкцией](https://habr.com/ru/articles/722918/).
 
+Выделение границ проведено с помощью фильтра [`Canny`](https://en.wikipedia.org/wiki/Canny_edge_detector). Настраиваемые гиперпараметры для выделения круга: 
+
+`N` - количество первоначальных точек построения;
+
+`K` - количество итераций; 
+
+`THRESHOLD_RADIUS` - размер порога радиуса, используемый для оценки точности построения круга; 
+
+`THRESHOLD_COUNT` - количество точек вблизи построенного круга, используется для оценки точности построения.
+
+
+Изображения с выделенным кругом и отфильтрованное с выделенными границами сохраняются в *"/Cuda-course-tasks/build/src/task4"* под именами: **OutputImage.png** и **FilteredImage.png**.
+
+Результат обработки исходного изображения получен при запуске локально на видеокарте *NVIDIA GeForce RTX 3050*:
+<figure>
+  <img src="https://github.com/Pan-Boba/Cuda-course-tasks/assets/102728548/3df5aede-8b0a-413c-b3fb-39c68f8bfc13;auto=format&amp;fit=crop&amp;w=1000&amp;q=80" alt="">
+</figure>
