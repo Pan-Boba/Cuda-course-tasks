@@ -26,7 +26,7 @@ void RunTask(int taskNumber)
 		{
 			std::cout << "Running the fourth task...\n" << std::endl;
 			//fourthTask::FindCircleCPU("./src/task4/InputImage.png");
-			fourthTask::FindCircleGPU("./src/task4/InputImage.png");
+			fourthTask::FindCircleCPU("./src/task4/InputImage.png");
 			std::cout << "Fourth task completed.\n" << std::endl;
 			break;
 		}

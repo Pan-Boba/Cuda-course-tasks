@@ -5,7 +5,7 @@
 #define N 5
 #define K 100
 #define THRESHOLD_RADIUS 5
-#define THRESHOLD_COUNT 900 //100 for inner circle
+#define THRESHOLD_COUNT 100 //100 for inner circle
 
 using namespace fourthTask;
 

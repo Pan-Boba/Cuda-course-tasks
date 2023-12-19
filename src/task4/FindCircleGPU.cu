@@ -400,7 +400,7 @@ __host__ std::pair<cv::Point, double> ChooseBestParameters(const Point* circleCe
 __host__ std::pair<cv::Point, double> GetOptimalParameters(unsigned int* edgesPoints, const int numOfEdges)
 {
 	int numOfCandidates = 0;
-	Point* circleCenters, * circleCentersCPU = new Point[K];
+	Point* circleCenters, * circleCentersCPU;
 	double* circleRadiuses, * circleRadiusesCPU = new double[K], * errors, * errorsCPU = new double[K];
 
 	cudaMallocManaged(&circleCenters, K * sizeof(Point));
