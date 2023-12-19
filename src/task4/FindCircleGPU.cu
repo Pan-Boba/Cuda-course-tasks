@@ -1,167 +1,78 @@
 #include "FindCircle.cuh"
 
-#define KERNEL_SIZE 3
 #define IMAGE_CHANNELS 3
 #define BLOCK_SIZE 16
 
-#define SEED 30
-
 #define BLUR_SIZE 17
 #define CIRCLE_THICKNESS 3
+
 #define N 5
-#define K 100
+#define K 50
 #define THRESHOLD_RADIUS 7 // 5 for inner circle
-#define THRESHOLD_COUNT 600 //100 for inner circle
+#define THRESHOLD_COUNT 100 //100 for inner circle
+
+#define NUM_OF_ALL_POINTS 2747
 
 using namespace fourthTask;
 
 
-struct Point
+namespace Point
 {
-	int x, y;
-	__device__ Point() {}
-	__device__ Point(int _x, int _y) : x(_x), y(_y) {}
-
-	__device__ static double dist(const Point& first, const Point& second)
+	__device__ static double dist(const int* first, const int* second)
 	{
-		double _x = first.x - second.x;
-		double _y = first.y - second.y;
+		double _x = first[0] - second[0];
+		double _y = first[1] - second[1];
 		return std::sqrt(_x * _x + _y * _y);
 	}
-
-	__device__ Point& operator=(const Point& in)
-	{
-		x = in.x;
-		y = in.y;
-		return *this;
-	}
-};
+}
 
 
-struct Matrix
+namespace Matrix
 {
-	int height, width;
-	double** elements;
-
-	__device__ Matrix(int _height, int _width) : height(_height), width(_width)
-	{
-		elements = new double* [height];
-		for (int i = 0; i < height; i++)
-		{
-			elements[i] = new double[width];
-		}
-	}
-
-	template <int _height, int _width>
-	__device__ Matrix(double (&_elements)[_height][_width]) : height(_height), width(_width)
-	{
-		elements = new double* [height];
-		for (int i = 0; i < height; i++)
-		{
-			elements[i] = new double[width];
-			for (int j = 0; j < width; j++)
-			{
-				elements[i][j] = _elements[i][j];
-			}
-		}
-	}
-
-	__device__ static double sum(const Matrix& in)
+	__device__ static double sum(const double* in, const int numOfData)
 	{
 		double sum = 0;
-		for (int i = 0; i < in.height; ++i)
+		for (int i = 0; i < numOfData; ++i)
 		{
-			for (int j = 0; j < in.width; ++j)
-			{
-				sum += in.elements[i][j];
-			}
+			sum += in[i];
 		}
 
 		return sum;
 	}
 
-	__device__ static void subtract(Matrix& in, const double element)
+	__device__ static void subtract(double* in, const double element, const int numOfData)
 	{
-		for (int i = 0; i < in.height; ++i)
+		for (int i = 0; i < numOfData; ++i)
 		{
-			for (int j = 0; j < in.width; ++j)
-			{
-				in.elements[i][j] -= element;
-			}
+			in[i] -= element;
 		}
 	}
 
-	__device__ static  double mulSum(const Matrix& first, const Matrix& second)
+	__device__ static  double mulSum(const double* first, const double* second, const int numOfData)
 	{
-		Matrix result(first.height, first.width);
-
-		for (int i = 0; i < first.height; i++)
+		double sum = 0;
+		for (int i = 0; i < numOfData; i++)
 		{
-			for (int j = 0; j < first.width; j++)
-			{
-				result.elements[i][j] = first.elements[i][j] * second.elements[i][j];
-			}
+			sum += first[i] * second[i];
 		}
 
-		return sum(result);
+		return sum;
 	}
 
-	__device__ static double mulSum(const Matrix& first, const Matrix& second, const Matrix& third)
+	__device__ static double mulSum(const double* first, const double* second, const double* third, const int numOfData)
 	{
-		Matrix result(first.height, first.width);
-
-		for (int i = 0; i < first.height; i++)
+		double sum = 0;
+		for (int i = 0; i < numOfData; i++)
 		{
-			for (int j = 0; j < first.width; j++)
-			{
-				result.elements[i][j] = first.elements[i][j] * second.elements[i][j] * third.elements[i][j];
-			}
+			sum += first[i] * second[i] * third[i];
 		}
 
-		return sum(result);
+		return sum;
 	}
-
-	__device__ static void multiply(const Matrix& first, const Matrix& second, Matrix& result)
-	{
-		for (int i = 0; i < first.height; i++)
-		{
-			for (int j = 0; j < second.width; j++)
-			{
-				result.elements[i][j] = 0;
-
-				for (int k = 0; k < second.height; k++)
-				{
-					result.elements[i][j] += first.elements[i][k] * second.elements[k][j];
-				}
-			}
-		}
-	}
-
-	__device__ Matrix inverse2D()
-	{
-		Matrix temp(2, 2);
-
-		double det = elements[0][0] * elements[1][1] - elements[0][1] * elements[1][0];
-
-		temp.elements[0][0] = elements[1][1] / det;
-		temp.elements[0][1] = -elements[0][1] / det;
-		temp.elements[1][0] = -elements[1][0] / det;
-		temp.elements[1][1] = elements[0][0] / det;
-
-		for (int i = 0; i < 2; i++)
-		{
-			for (int j = 0; j < 2; j++)
-			{
-				elements[i][j] = temp.elements[i][j];
-			}
-		}
-
-		return *this;
-	}
-};
+}
 
 
-__host__ unsigned int* GetCircleData(const cv::Mat& inputImage, int& numOfEdges)
+__host__ int* GetCircleData(const cv::Mat& inputImage, int& numOfEdges)
 {
 	cv::Mat grayImage;
 	cv::cvtColor(inputImage, grayImage, cv::COLOR_BGR2GRAY);
@@ -178,7 +89,7 @@ __host__ unsigned int* GetCircleData(const cv::Mat& inputImage, int& numOfEdges)
 	cv::imwrite("./src/task4/FilteredImage.png", edges);
 
 	// Create array of edge Points
-	unsigned int* edgesPoints = new unsigned int[2 * edges.rows * edges.cols];
+	int* edgesPoints = new int[2 * edges.rows * edges.cols];
 
 	for (int row = 0; row < edges.rows; ++row)
 	{
@@ -186,9 +97,9 @@ __host__ unsigned int* GetCircleData(const cv::Mat& inputImage, int& numOfEdges)
 		{
 			if (edges.data[row * edges.cols + col] == 255)
 			{
-				edgesPoints[numOfEdges] = col;
-				edgesPoints[numOfEdges + 1] = row;
-				numOfEdges += 2;
+				edgesPoints[2 * numOfEdges] = col;
+				edgesPoints[2 * numOfEdges + 1] = row;
+				++numOfEdges;
 			}
 		}
 	}
@@ -197,127 +108,90 @@ __host__ unsigned int* GetCircleData(const cv::Mat& inputImage, int& numOfEdges)
 }
 
 
-__device__ Point* GetAllPoints(const unsigned int* allEdges, const int numOfAllPoints)
+__device__ void GetRandomPoints(const int* allPoints, int* chosenPoints)
 {
-	Point* allPoints = new Point[numOfAllPoints];
-	int j = 0;
-
-	for (int i = 0; i < numOfAllPoints; i++)
-	{
-		
-		allPoints[i] = Point(allEdges[j], allEdges[j + 1]);
-		j += 2;
-	}
-
-	return allPoints;
-}
-
-
-__device__ void SwapRandomPoints(Point* allPoints, const int index1, const int index2)
-{
-	Point temp = allPoints[index1];
-	allPoints[index1] = allPoints[index2];
-	allPoints[index2] = temp;
-}
-
-
-__device__ Point* GetRandomPoints(Point* allPoints, const int numOfAllPoints)
-{
+	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	curandState s;
-	curand_init(SEED, 0, 0, &s);
-
-	for (int i = 0; i < numOfAllPoints; i++)
-	{
-		int randomIndex = numOfAllPoints * curand_uniform(&s) - 1;
-		SwapRandomPoints(allPoints, i, randomIndex);
-		randomIndex = numOfAllPoints * curand_uniform(&s) - 1;
-		SwapRandomPoints(allPoints, numOfAllPoints - i, randomIndex);
-	}
-
-	Point* chosenPoints = new Point[N];
+	curand_init(index, 0, 0, &s);
 
 	for (int i = 0; i < N; i++)
 	{
-		chosenPoints[i] = allPoints[i];
+		int randomIndex = curand(&s) % NUM_OF_ALL_POINTS;
+		//int randomIndex = (NUM_OF_ALL_POINTS - 2) * curand_uniform(&s);
+		randomIndex /=  2;
+		chosenPoints[2 * i] = allPoints[2 * randomIndex];
+		chosenPoints[2 * i + 1] = allPoints[2 * randomIndex + 1];
 	}
-
-	return chosenPoints;
 }
 
 
-__device__ void GetCircleParametersLeastSquares(const Point* points, const int numOfPoints, Point& circleCenter, double& circleRadius)
+__device__ void GetCircleParametersLeastSquares(const int* points, const int numOfPoints, int* circleCenter, double& circleRadius)
 {
 	// https://dtcenter.org/sites/default/files/community-code/met/docs/write-ups/circle_fit.pdf
-	Matrix ui(1, numOfPoints), vi(1, numOfPoints), temp(1, numOfPoints);
+	double* ui = new double[NUM_OF_ALL_POINTS], * vi = new double[NUM_OF_ALL_POINTS];
 
-	for (int i = 0; i < numOfPoints; ++i)
+	for (int i = 0; i < NUM_OF_ALL_POINTS; ++i)
 	{
-		ui.elements[0][i] = (double) points[i].x;
-		vi.elements[0][i] = (double) points[i].y;
+		if (i < numOfPoints)
+		{
+			ui[i] = (double)points[2 * i];
+			vi[i] = (double)points[2 * i + 1];
+		}
+		else
+		{
+			ui[i] = 0.0;
+			vi[i] = 0.0;
+		}
 	}
 
-	double averageX = Matrix::sum(ui) / (double)numOfPoints;
-	double averageY = Matrix::sum(vi) / (double)numOfPoints;
+	double averageX = Matrix::sum(ui, numOfPoints) / (double)numOfPoints;
+	double averageY = Matrix::sum(vi, numOfPoints) / (double)numOfPoints;
 
-	Matrix::subtract(ui, averageX);
-	Matrix::subtract(vi, averageY);
+	Matrix::subtract(ui, averageX, numOfPoints);
+	Matrix::subtract(vi, averageY, numOfPoints);
 
-	double Suu = Matrix::mulSum(ui, ui);
-	double Svv = Matrix::mulSum(vi, vi);
-	double Suv = Matrix::mulSum(ui, vi);
+	double Suu = Matrix::mulSum(ui, ui, numOfPoints);
+	double Svv = Matrix::mulSum(vi, vi, numOfPoints);
+	double Suv = Matrix::mulSum(ui, vi, numOfPoints);
 
-	double Suuu = Matrix::mulSum(ui, ui, ui);
-	double Svvv = Matrix::mulSum(vi, vi, vi);
-	double Suvv = Matrix::mulSum(ui, vi, vi);
-	double Svuu = Matrix::mulSum(vi, ui, ui);
+	double rightSideX = 0.5 * (Matrix::mulSum(ui, ui, ui, numOfPoints) + Matrix::mulSum(ui, vi, vi, numOfPoints));
+	double rightSideY = 0.5 * (Matrix::mulSum(vi, vi, vi, numOfPoints) + Matrix::mulSum(vi, ui, ui, numOfPoints));
 
-	double rightSideArray[2][1] = { 0.5 * (Suuu + Suvv), 0.5 * (Svvv + Svuu) };
-	double leftSideArray[2][2] = { {Suu, Suv}, {Suv, Svv} };
+	double det = Suu * Svv - Suv * Suv;
+	double dataX = (Svv - Suv) * rightSideX / det, dataY = (Suu - Suv) * rightSideY / det;
 
-	Matrix rightSideVector(rightSideArray);
-	Matrix leftSideMatrix(leftSideArray);
-
-	Matrix centerVector(2, 1);
-	Matrix::multiply(leftSideMatrix.inverse2D(), rightSideVector, centerVector);
-	
-	double dataX = centerVector.elements[0][0], dataY = centerVector.elements[1][0];
-
-	circleCenter = Point((int)(dataX + averageX), (int)(dataY + averageY));
+	circleCenter[0] = dataX + averageX;
+	circleCenter[1] = dataY + averageY;
 	circleRadius = (int)std::sqrt(dataX * dataX + dataY * dataY + (Suu + Svv) / numOfPoints);
 }
 
 
-__device__ Point* GetAllInlinePoints(const Point* allPoints, const int numOfAllPoints, const Point circleCenter, const double circleRadius, int& numOfInlinePoints)
+__device__ int GetAllInlinePoints(const int* allPoints, const  int* circleCenter, const double circleRadius, int* inlinePoints)
 {
-	Point* inlinePoints = new Point[numOfAllPoints];
-
-	for (int i = 0; i < numOfAllPoints; ++i)
+	int numOfInlinePoints = 0;
+	for (int i = 0; i < NUM_OF_ALL_POINTS; ++i)
 	{
-		double pointRadius = Point::dist(allPoints[i], circleCenter);
+		double pointRadius = Point::dist(&allPoints[2 * i], circleCenter);
 
 		if ((pointRadius > (circleRadius - THRESHOLD_RADIUS)) && (pointRadius < (circleRadius + THRESHOLD_RADIUS)))
 		{
-			inlinePoints[numOfInlinePoints] = allPoints[i];
+			inlinePoints[2 * numOfInlinePoints] = allPoints[2 * i];
+			inlinePoints[2 * numOfInlinePoints + 1] = allPoints[2 * i + 1];
 			++numOfInlinePoints;
 		}
 	}
 
-	if (numOfInlinePoints != 0)
-	{
-		return inlinePoints;
-	}
-
-	return new Point();
+	return numOfInlinePoints;
 }
 
 
-__device__ double CalculateMeanError(const Point* inlinePoints, const int numOfInlinePoints, const Point circleCenter, const double circleRadius)
+__device__ double CalculateMeanError(const int* inlinePoints, const int numOfInlinePoints, const  int* circleCenter, const double circleRadius)
 {
 	double error = 0;
 
 	for (int i = 0; i < numOfInlinePoints; ++i)
 	{
-		double pointRadius = Point::dist(inlinePoints[i], circleCenter);
+		double pointRadius = Point::dist(&inlinePoints[2 * i], circleCenter);
 		error += std::abs(circleRadius - pointRadius);
 	}
 
@@ -325,23 +199,22 @@ __device__ double CalculateMeanError(const Point* inlinePoints, const int numOfI
 }
 
 
-__device__ void GetCandidateCircleParameters(unsigned int* allEdges, const int numOfAllPoints, Point& circleCenter, double& circleRadius, double& error)
+__device__ void GetCandidateCircleParameters(int* allPoints, int* circleCenter, double& circleRadius, double& error)
 {
 	// https://sdg002.github.io/ransac-circle/index.html
-	Point* allPoints = GetAllPoints(allEdges, numOfAllPoints);
-	Point* chosenEdges = GetRandomPoints(allPoints, numOfAllPoints);
+	int* chosenPoints = new int[2 * K], * inlinePoints = new int[2 * NUM_OF_ALL_POINTS];
 
-	GetCircleParametersLeastSquares(chosenEdges, N, circleCenter, circleRadius);
+	GetRandomPoints(allPoints, chosenPoints);
 
-	int numOfInlinePoints = 0;
-	Point* inlinePoints = GetAllInlinePoints(allPoints, numOfAllPoints, circleCenter, circleRadius, numOfInlinePoints);
+	GetCircleParametersLeastSquares(chosenPoints, N, circleCenter, circleRadius);
+
+	int numOfInlinePoints = GetAllInlinePoints(allPoints, circleCenter, circleRadius, inlinePoints);
 
 	if (numOfInlinePoints > THRESHOLD_COUNT)
 	{
 		GetCircleParametersLeastSquares(inlinePoints, numOfInlinePoints, circleCenter, circleRadius);
 
-		numOfInlinePoints = 0;
-		inlinePoints = GetAllInlinePoints(allPoints, numOfAllPoints, circleCenter, circleRadius, numOfInlinePoints);
+		numOfInlinePoints = GetAllInlinePoints(allPoints, circleCenter, circleRadius, inlinePoints);
 
 		if (numOfInlinePoints > THRESHOLD_COUNT)
 		{
@@ -354,73 +227,89 @@ __device__ void GetCandidateCircleParameters(unsigned int* allEdges, const int n
 }
 
 
-__global__ void IterateOverCandidates(unsigned int* edgesPoints, const int numOfAllPoints, Point * circleCenters, double* circleRadiuses, double* errors, int& numOfCandidates)
+__global__ void IterateOverCandidates(int* edgesPoints, int* circleCenters, double* circleRadiuses, double* errors)
 {
-	unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
+	int index = blockIdx.x * blockDim.x + threadIdx.x;
 
 	if (index < K)
 	{
-		Point circleCenter;
-		double circleRadius, error;
-		GetCandidateCircleParameters(edgesPoints, numOfAllPoints, circleCenter, circleRadius, error);
+		int* circleCenter = new int[2];
+		double circleRadius = 0, error = -1;
 
-		if (error != -1)
-		{
-			circleCenters[numOfCandidates] = circleCenter;
-			circleRadiuses[numOfCandidates] = circleRadius;
-			errors[numOfCandidates] = error;
-			++numOfCandidates;
-		}
+		GetCandidateCircleParameters(edgesPoints, circleCenter, circleRadius, error);
+
+		circleCenters[2 * index] = circleCenter[0];
+		circleCenters[2 * index + 1] = circleCenter[1];
+		circleRadiuses[index] = circleRadius;
+		errors[index] = error;
 	}
 }
 
 
-__host__ std::pair<cv::Point, double> ChooseBestParameters(const Point* circleCenters, const double* circleRadiuses, const double* errors, const int numOfCandidates)
+__host__ std::pair<cv::Point, double> ChooseBestParameters(int* circleCenters, double* circleRadiuses, double* errors)
 {
-	assert(numOfCandidates != 0);
-
 	int bestParameterIndex = 0;
 	double tempError = 10000;
 
-	for (int i = 0; i < numOfCandidates; ++i)
+	for (int i = 0; i < K; ++i)
 	{
-		if (errors[i] < tempError)
+		if (errors[i] > 0 && errors[i] < tempError)
 		{
 			tempError = errors[i];
 			bestParameterIndex = i;
 		}
 	}
 
-	std::pair <cv::Point, double> circleParameters(cv::Point(circleCenters[bestParameterIndex].x, circleCenters[bestParameterIndex].y), circleRadiuses[bestParameterIndex]);
+	std::pair <cv::Point, double> circleParameters(cv::Point(circleCenters[2 * bestParameterIndex], circleCenters[2 * bestParameterIndex + 1]), circleRadiuses[bestParameterIndex]);
+
+	// free memory
+	{
+		delete[] circleCenters;
+		delete[] circleRadiuses;
+		delete[] errors;
+	}
 
 	return circleParameters;
 }
 
 
-__host__ std::pair<cv::Point, double> GetOptimalParameters(unsigned int* edgesPoints, const int numOfEdges)
+__host__ std::pair<cv::Point, double> GetOptimalParameters(int* edgesPointsCPU)
 {
-	int numOfCandidates = 0;
-	Point* circleCenters, * circleCentersCPU;
-	double* circleRadiuses, * circleRadiusesCPU = new double[K], * errors, * errorsCPU = new double[K];
+	int* edgesPoints, * circleCenters, * circleCentersCPU = new int[2 * K];
+	double* circleRadiuses, * errors, * circleRadiusesCPU = new double[K], * errorsCPU = new double[K];
 
-	cudaMallocManaged(&circleCenters, K * sizeof(Point));
-	cudaMallocManaged(&circleRadiuses, K * sizeof(double));
-	cudaMallocManaged(&errors, K * sizeof(double));
+	// allocate data
+	{
+		cudaMallocManaged((void**)&edgesPoints, 2 * NUM_OF_ALL_POINTS * sizeof(int));
+		cudaMallocManaged((void**)&circleCenters, 2 * K * sizeof(int));
+		cudaMallocManaged((void**)&circleRadiuses, K * sizeof(double));
+		cudaMallocManaged((void**)&errors, K * sizeof(double));
 
+		cudaMemcpy(edgesPoints, edgesPointsCPU, 2 * NUM_OF_ALL_POINTS * sizeof(int), cudaMemcpyHostToDevice);
+	}
+
+	dim3 numBlocks(ceil(K / (double)BLOCK_SIZE));
 	dim3 blockSize(BLOCK_SIZE);
-	dim3 numBlocks(ceil(K / (double) BLOCK_SIZE));
 
-	IterateOverCandidates <<<numBlocks, blockSize>>> (edgesPoints, (int)(numOfEdges / 2), circleCenters, circleRadiuses, errors, numOfCandidates);
+	IterateOverCandidates <<<numBlocks, blockSize>>> (edgesPoints, circleCenters, circleRadiuses, errors);
 	cudaDeviceSynchronize();
 
-	cudaMemcpy(errors, errorsCPU, K, cudaMemcpyDeviceToHost);
-	cudaMemcpy(circleCenters, circleCentersCPU, K, cudaMemcpyDeviceToHost);
-	cudaMemcpy(circleRadiuses, circleRadiusesCPU, K, cudaMemcpyDeviceToHost);
+	// copy from gpu to cpu
+	{
+		cudaMemcpy(circleCentersCPU, circleCenters, 2 * K * sizeof(int), cudaMemcpyDeviceToHost);
+		cudaMemcpy(circleRadiusesCPU , circleRadiuses, K * sizeof(double), cudaMemcpyDeviceToHost);
+		cudaMemcpy(errorsCPU, errors, K * sizeof(double), cudaMemcpyDeviceToHost);
+	}
 
-	// Wait for GPU to finish
-	cudaDeviceSynchronize();
+	// free memory
+	{
+		cudaFree(edgesPoints);
+		cudaFree(circleCenters);
+		cudaFree(circleRadiuses);
+		cudaFree(errors);
+	}
 
-	return ChooseBestParameters(circleCentersCPU, circleRadiusesCPU, errorsCPU, numOfCandidates);
+	return ChooseBestParameters(circleCentersCPU, circleRadiusesCPU, errorsCPU);
 }
 
 
@@ -432,27 +321,14 @@ void fourthTask::FindCircleGPU(const std::string pathToImage)
 	int numOfEdges = 0;
 
 	// select data
-	unsigned int* edgesPoints = GetCircleData(inputImage, numOfEdges);
-	unsigned int* edgesPointsGPU;
-
-	// allocate data
-	{
-		cudaMallocManaged(&edgesPointsGPU, numOfEdges * sizeof(unsigned int));
-		cudaMemcpy(edgesPoints, edgesPointsGPU, numOfEdges * sizeof(unsigned int), cudaMemcpyHostToDevice);
-	}
+	int* edgesPoints = GetCircleData(inputImage, numOfEdges);
 
 	// get optimal circle parameters
-	std::pair<cv::Point, double> circleParameters = GetOptimalParameters(edgesPointsGPU, numOfEdges);
+	std::pair<cv::Point, double> circleParameters = GetOptimalParameters(edgesPoints);
 
 	// add circle to the image
 	{
 		cv::circle(outputImage, circleParameters.first, circleParameters.second, cv::Scalar(0, 0, 0), CIRCLE_THICKNESS);
 		cv::imwrite("./src/task4/OutputImage.png", outputImage);
-	}
-
-	// free memorey
-	{
-		delete[] edgesPoints;
-		cudaFree(edgesPointsGPU);
 	}
 }
