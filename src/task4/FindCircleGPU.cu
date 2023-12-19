@@ -3,12 +3,13 @@
 #define KERNEL_SIZE 3
 #define IMAGE_CHANNELS 3
 #define BLOCK_SIZE 16
-#define BLOCK_NUM 16
+
+#define SEED 30
 
 #define BLUR_SIZE 17
 #define CIRCLE_THICKNESS 3
 #define N 5
-#define K 200
+#define K 100
 #define THRESHOLD_RADIUS 7 // 5 for inner circle
 #define THRESHOLD_COUNT 600 //100 for inner circle
 
@@ -18,17 +19,17 @@ using namespace fourthTask;
 struct Point
 {
 	int x, y;
-	Point() {}
-	Point(int _x, int _y) : x(_x), y(_y) {}
+	__device__ Point() {}
+	__device__ Point(int _x, int _y) : x(_x), y(_y) {}
 
-	static double dist(const Point& first, const Point& second)
+	__device__ static double dist(const Point& first, const Point& second)
 	{
 		double _x = first.x - second.x;
 		double _y = first.y - second.y;
 		return std::sqrt(_x * _x + _y * _y);
 	}
 
-	Point& operator=(const Point& in)
+	__device__ Point& operator=(const Point& in)
 	{
 		x = in.x;
 		y = in.y;
@@ -42,7 +43,7 @@ struct Matrix
 	int height, width;
 	double** elements;
 
-	Matrix(int _height, int _width) : height(_height), width(_width)
+	__device__ Matrix(int _height, int _width) : height(_height), width(_width)
 	{
 		elements = new double* [height];
 		for (int i = 0; i < height; i++)
@@ -52,7 +53,7 @@ struct Matrix
 	}
 
 	template <int _height, int _width>
-	Matrix(double (&_elements)[_height][_width]) : height(_height), width(_width)
+	__device__ Matrix(double (&_elements)[_height][_width]) : height(_height), width(_width)
 	{
 		elements = new double* [height];
 		for (int i = 0; i < height; i++)
@@ -65,16 +66,7 @@ struct Matrix
 		}
 	}
 
-	~Matrix()
-	{
-		//for (int i = 0; i < height; i++)
-		//{
-		//	delete[] elements[i];
-		//}
-		//delete[] elements;
-	}
-
-	static double sum(const Matrix& in)
+	__device__ static double sum(const Matrix& in)
 	{
 		double sum = 0;
 		for (int i = 0; i < in.height; ++i)
@@ -88,7 +80,7 @@ struct Matrix
 		return sum;
 	}
 
-	static void subtract(Matrix& in, const double element)
+	__device__ static void subtract(Matrix& in, const double element)
 	{
 		for (int i = 0; i < in.height; ++i)
 		{
@@ -99,7 +91,7 @@ struct Matrix
 		}
 	}
 
-	static  double mulSum(const Matrix& first, const Matrix& second)
+	__device__ static  double mulSum(const Matrix& first, const Matrix& second)
 	{
 		Matrix result(first.height, first.width);
 
@@ -114,7 +106,7 @@ struct Matrix
 		return sum(result);
 	}
 
-	static double mulSum(const Matrix& first, const Matrix& second, const Matrix& third)
+	__device__ static double mulSum(const Matrix& first, const Matrix& second, const Matrix& third)
 	{
 		Matrix result(first.height, first.width);
 
@@ -129,7 +121,7 @@ struct Matrix
 		return sum(result);
 	}
 
-	static void multiply(const Matrix& first, const Matrix& second, Matrix& result)
+	__device__ static void multiply(const Matrix& first, const Matrix& second, Matrix& result)
 	{
 		for (int i = 0; i < first.height; i++)
 		{
@@ -145,12 +137,11 @@ struct Matrix
 		}
 	}
 
-	Matrix inverse2D()
+	__device__ Matrix inverse2D()
 	{
 		Matrix temp(2, 2);
 
 		double det = elements[0][0] * elements[1][1] - elements[0][1] * elements[1][0];
-		assert(det != 0);
 
 		temp.elements[0][0] = elements[1][1] / det;
 		temp.elements[0][1] = -elements[0][1] / det;
@@ -170,7 +161,7 @@ struct Matrix
 };
 
 
-Point* GetCircleData(const cv::Mat& inputImage, int& numOfEdges)
+__host__ unsigned int* GetCircleData(const cv::Mat& inputImage, int& numOfEdges)
 {
 	cv::Mat grayImage;
 	cv::cvtColor(inputImage, grayImage, cv::COLOR_BGR2GRAY);
@@ -187,7 +178,7 @@ Point* GetCircleData(const cv::Mat& inputImage, int& numOfEdges)
 	cv::imwrite("./src/task4/FilteredImage.png", edges);
 
 	// Create array of edge Points
-	Point* edgesPoints = new Point[edges.rows * edges.cols];
+	unsigned int* edgesPoints = new unsigned int[2 * edges.rows * edges.cols];
 
 	for (int row = 0; row < edges.rows; ++row)
 	{
@@ -195,8 +186,9 @@ Point* GetCircleData(const cv::Mat& inputImage, int& numOfEdges)
 		{
 			if (edges.data[row * edges.cols + col] == 255)
 			{
-				edgesPoints[numOfEdges] = Point(col, row);
-				++numOfEdges;
+				edgesPoints[numOfEdges] = col;
+				edgesPoints[numOfEdges + 1] = row;
+				numOfEdges += 2;
 			}
 		}
 	}
@@ -205,10 +197,42 @@ Point* GetCircleData(const cv::Mat& inputImage, int& numOfEdges)
 }
 
 
-// TO DO: shuffle (curand?)
-Point* GetRandomPoints(Point* allPoints, const int numOfAllPoints)
+__device__ Point* GetAllPoints(const unsigned int* allEdges, const int numOfAllPoints)
 {
-	std::random_shuffle(&allPoints[0], &allPoints[numOfAllPoints - 1]);
+	Point* allPoints = new Point[numOfAllPoints];
+	int j = 0;
+
+	for (int i = 0; i < numOfAllPoints; i++)
+	{
+		
+		allPoints[i] = Point(allEdges[j], allEdges[j + 1]);
+		j += 2;
+	}
+
+	return allPoints;
+}
+
+
+__device__ void SwapRandomPoints(Point* allPoints, const int index1, const int index2)
+{
+	Point temp = allPoints[index1];
+	allPoints[index1] = allPoints[index2];
+	allPoints[index2] = temp;
+}
+
+
+__device__ Point* GetRandomPoints(Point* allPoints, const int numOfAllPoints)
+{
+	curandState s;
+	curand_init(SEED, 0, 0, &s);
+
+	for (int i = 0; i < numOfAllPoints; i++)
+	{
+		int randomIndex = numOfAllPoints * curand_uniform(&s) - 1;
+		SwapRandomPoints(allPoints, i, randomIndex);
+		randomIndex = numOfAllPoints * curand_uniform(&s) - 1;
+		SwapRandomPoints(allPoints, numOfAllPoints - i, randomIndex);
+	}
 
 	Point* chosenPoints = new Point[N];
 
@@ -221,7 +245,7 @@ Point* GetRandomPoints(Point* allPoints, const int numOfAllPoints)
 }
 
 
-void GetCircleParametersLeastSquares(const Point* points, const int numOfPoints, Point& circleCenter, double& circleRadius)
+__device__ void GetCircleParametersLeastSquares(const Point* points, const int numOfPoints, Point& circleCenter, double& circleRadius)
 {
 	// https://dtcenter.org/sites/default/files/community-code/met/docs/write-ups/circle_fit.pdf
 	Matrix ui(1, numOfPoints), vi(1, numOfPoints), temp(1, numOfPoints);
@@ -256,7 +280,6 @@ void GetCircleParametersLeastSquares(const Point* points, const int numOfPoints,
 	Matrix centerVector(2, 1);
 	Matrix::multiply(leftSideMatrix.inverse2D(), rightSideVector, centerVector);
 	
-	// -48.6; 49.1
 	double dataX = centerVector.elements[0][0], dataY = centerVector.elements[1][0];
 
 	circleCenter = Point((int)(dataX + averageX), (int)(dataY + averageY));
@@ -264,7 +287,7 @@ void GetCircleParametersLeastSquares(const Point* points, const int numOfPoints,
 }
 
 
-Point* GetAllInlinePoints(const Point* allPoints, const int numOfAllPoints, const Point circleCenter, const double circleRadius, int& numOfInlinePoints)
+__device__ Point* GetAllInlinePoints(const Point* allPoints, const int numOfAllPoints, const Point circleCenter, const double circleRadius, int& numOfInlinePoints)
 {
 	Point* inlinePoints = new Point[numOfAllPoints];
 
@@ -288,7 +311,7 @@ Point* GetAllInlinePoints(const Point* allPoints, const int numOfAllPoints, cons
 }
 
 
-double CalculateMeanError(const Point* inlinePoints, const int numOfInlinePoints, const Point circleCenter, const double circleRadius)
+__device__ double CalculateMeanError(const Point* inlinePoints, const int numOfInlinePoints, const Point circleCenter, const double circleRadius)
 {
 	double error = 0;
 
@@ -302,9 +325,10 @@ double CalculateMeanError(const Point* inlinePoints, const int numOfInlinePoints
 }
 
 
-void GetCandidateCircleParameters(Point* allPoints, const int numOfAllPoints, Point& circleCenter, double& circleRadius, double& error)
+__device__ void GetCandidateCircleParameters(unsigned int* allEdges, const int numOfAllPoints, Point& circleCenter, double& circleRadius, double& error)
 {
 	// https://sdg002.github.io/ransac-circle/index.html
+	Point* allPoints = GetAllPoints(allEdges, numOfAllPoints);
 	Point* chosenEdges = GetRandomPoints(allPoints, numOfAllPoints);
 
 	GetCircleParametersLeastSquares(chosenEdges, N, circleCenter, circleRadius);
@@ -330,17 +354,15 @@ void GetCandidateCircleParameters(Point* allPoints, const int numOfAllPoints, Po
 }
 
 
-__global__ void IterateOverCandidates(Point* allPoints, const int numOfAllPoints, Point* circleCenters, double* circleRadiuses, double* errors, int& numOfCandidates)
+__global__ void IterateOverCandidates(unsigned int* edgesPoints, const int numOfAllPoints, Point * circleCenters, double* circleRadiuses, double* errors, int& numOfCandidates)
 {
-	unsigned int index = threadIdx.x;
-	int stride = blockDim.x;
+	unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
 
-	for (int i = index; i < K; i += stride)
+	if (index < K)
 	{
 		Point circleCenter;
 		double circleRadius, error;
-
-		GetCandidateCircleParameters(allPoints, numOfAllPoints, circleCenter, circleRadius, error);
+		GetCandidateCircleParameters(edgesPoints, numOfAllPoints, circleCenter, circleRadius, error);
 
 		if (error != -1)
 		{
@@ -353,7 +375,7 @@ __global__ void IterateOverCandidates(Point* allPoints, const int numOfAllPoints
 }
 
 
-std::pair<cv::Point, double> ChooseBestParameters(const Point* circleCenters, const double* circleRadiuses, const double* errors, const int numOfCandidates)
+__host__ std::pair<cv::Point, double> ChooseBestParameters(const Point* circleCenters, const double* circleRadiuses, const double* errors, const int numOfCandidates)
 {
 	assert(numOfCandidates != 0);
 
@@ -375,26 +397,30 @@ std::pair<cv::Point, double> ChooseBestParameters(const Point* circleCenters, co
 }
 
 
-std::pair<cv::Point, double> GetOptimalParameters(Point* edgesPoints, const int numOfAllPoints)
+__host__ std::pair<cv::Point, double> GetOptimalParameters(unsigned int* edgesPoints, const int numOfEdges)
 {
 	int numOfCandidates = 0;
-	Point* circleCenters = new Point[K];
-	double* circleRadiuses = new double[K], * errors = new double[K];
+	Point* circleCenters, * circleCentersCPU = new Point[K];
+	double* circleRadiuses, * circleRadiusesCPU = new double[K], * errors, * errorsCPU = new double[K];
 
-	//cudaMallocManaged(&circleCenters, K * sizeof(cv::Point));
-	//cudaMallocManaged(&circleRadiuses, K * sizeof(double));
-	//cudaMallocManaged(&errors, K * sizeof(double));
+	cudaMallocManaged(&circleCenters, K * sizeof(Point));
+	cudaMallocManaged(&circleRadiuses, K * sizeof(double));
+	cudaMallocManaged(&errors, K * sizeof(double));
 
 	dim3 blockSize(BLOCK_SIZE);
-	dim3 numBlocks(BLOCK_NUM);
+	dim3 numBlocks(ceil(K / (double) BLOCK_SIZE));
 
-	IterateOverCandidates <<<numBlocks, blockSize>>> (edgesPoints, circleCenters, circleRadiuses, errors, numOfCandidates);
-	//IterateOverCandidates(edgesPoints, numOfAllPoints, circleCenters, circleRadiuses, errors, numOfCandidates);
+	IterateOverCandidates <<<numBlocks, blockSize>>> (edgesPoints, (int)(numOfEdges / 2), circleCenters, circleRadiuses, errors, numOfCandidates);
+	cudaDeviceSynchronize();
+
+	cudaMemcpy(errors, errorsCPU, K, cudaMemcpyDeviceToHost);
+	cudaMemcpy(circleCenters, circleCentersCPU, K, cudaMemcpyDeviceToHost);
+	cudaMemcpy(circleRadiuses, circleRadiusesCPU, K, cudaMemcpyDeviceToHost);
 
 	// Wait for GPU to finish
-	//cudaDeviceSynchronize();
+	cudaDeviceSynchronize();
 
-	return ChooseBestParameters(circleCenters, circleRadiuses, errors, numOfCandidates);
+	return ChooseBestParameters(circleCentersCPU, circleRadiusesCPU, errorsCPU, numOfCandidates);
 }
 
 
@@ -406,17 +432,17 @@ void fourthTask::FindCircleGPU(const std::string pathToImage)
 	int numOfEdges = 0;
 
 	// select data
-	Point* edgesPoints = GetCircleData(inputImage, numOfEdges);
-	Point* edgesPointsGPU;
+	unsigned int* edgesPoints = GetCircleData(inputImage, numOfEdges);
+	unsigned int* edgesPointsGPU;
 
-	// Allocate memory and copy data
+	// allocate data
 	{
-		cudaMallocManaged(&edgesPointsGPU, numOfEdges);
-		cudaMemcpy(edgesPointsGPU, &edgesPoints, numOfEdges, cudaMemcpyHostToDevice);
+		cudaMallocManaged(&edgesPointsGPU, numOfEdges * sizeof(unsigned int));
+		cudaMemcpy(edgesPoints, edgesPointsGPU, numOfEdges * sizeof(unsigned int), cudaMemcpyHostToDevice);
 	}
 
 	// get optimal circle parameters
-	std::pair<cv::Point, double> circleParameters = GetOptimalParameters(edgesPoints, numOfEdges);
+	std::pair<cv::Point, double> circleParameters = GetOptimalParameters(edgesPointsGPU, numOfEdges);
 
 	// add circle to the image
 	{
@@ -424,7 +450,7 @@ void fourthTask::FindCircleGPU(const std::string pathToImage)
 		cv::imwrite("./src/task4/OutputImage.png", outputImage);
 	}
 
-	// Free memorey
+	// free memorey
 	{
 		delete[] edgesPoints;
 		cudaFree(edgesPointsGPU);
