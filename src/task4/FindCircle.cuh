@@ -2,8 +2,8 @@
 
 #include "cuda_runtime.h"
 #include <device_launch_parameters.h>
-#include <stdio.h>
 
+#include <stdio.h>
 #include <algorithm>
 #include <iostream>
 #include <iterator>
@@ -17,5 +17,7 @@
 
 namespace fourthTask
 {
-	void FindCircle(std::string pathToImage);
+	void FindCircleCPU(const std::string pathToImage);
+
+	void FindCircleGPU(const std::string pathToImage);
 }

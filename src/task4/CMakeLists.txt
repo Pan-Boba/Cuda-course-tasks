@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.27)
 project(FindCircle LANGUAGES CUDA CXX)
 
-add_library(FindCircle FindCircle.cuh FindCircle.cu)
+add_library(FindCircle FindCircle.cuh FindCircleCPU.cu FindCircleGPU.cu)
 
 find_package(OpenCV REQUIRED)
 

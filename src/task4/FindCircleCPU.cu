@@ -1,16 +1,11 @@
 #include "FindCircle.cuh"
 
-#define KERNEL_SIZE 3
-#define IMAGE_CHANNELS 3
-#define BLOCK_SIZE 16
-#define SHARED_BLOCK_SIZE (BLOCK_SIZE - 1 + KERNEL_SIZE)
-
 #define BLUR_SIZE 17
 #define CIRCLE_THICKNESS 3
 #define N 5
 #define K 100
 #define THRESHOLD_RADIUS 5
-#define THRESHOLD_COUNT 800 //100 for inner circle
+#define THRESHOLD_COUNT 900 //100 for inner circle
 
 using namespace fourthTask;
 
@@ -91,6 +86,7 @@ void GetCircleParametersLeastSquares(const std::vector<cv::Point>& points, cv::P
 	cv::Mat leftSideMatrix(2, 2, CV_64FC1, leftSideArray);
 
 	cv::Mat centerVector = leftSideMatrix.inv() * rightSideVector;
+
 	double dataX = centerVector.at<double>(0, 0), dataY = centerVector.at<double>(1, 0);
 
 	circleCenter = cv::Point((int) (dataX + averageX), (int) (dataY + averageY));
@@ -98,7 +94,7 @@ void GetCircleParametersLeastSquares(const std::vector<cv::Point>& points, cv::P
 }
 
 
-std::vector<cv::Point> GetAllInlinePoints(const std::vector<cv::Point>& allPoints, cv::Point& circleCenter, double& circleRadius)
+std::vector<cv::Point> GetAllInlinePoints(const std::vector<cv::Point>& allPoints, const cv::Point& circleCenter, const double& circleRadius)
 {
 	std::vector<cv::Point> inlinePoints;
 
@@ -116,7 +112,7 @@ std::vector<cv::Point> GetAllInlinePoints(const std::vector<cv::Point>& allPoint
 }
 
 
-double CalculateMeanError(const std::vector<cv::Point>& inlinePoints, cv::Point& circleCenter, double& circleRadius)
+double CalculateMeanError(const std::vector<cv::Point>& inlinePoints, const cv::Point& circleCenter, const double& circleRadius)
 {
 	double error = 0;
 
@@ -132,6 +128,7 @@ double CalculateMeanError(const std::vector<cv::Point>& inlinePoints, cv::Point&
 
 void GetCandidateCircleParameters(const std::vector<cv::Point>& allPoints, cv::Point& circleCenter, double& circleRadius, double& error)
 {
+	// https://sdg002.github.io/ransac-circle/index.html
 	std::vector<cv::Point> chosenEdges = GetRandomPoints(allPoints);
 
 	GetCircleParametersLeastSquares(chosenEdges, circleCenter, circleRadius);
@@ -179,7 +176,7 @@ std::pair<cv::Point, double> ChooseBestParameters(const std::vector<cv::Point>& 
 }
 
 
-void fourthTask::FindCircle(std::string pathToImage)
+void fourthTask::FindCircleCPU(const std::string pathToImage)
 {
 	// read data
 	cv::Mat inputImage = cv::imread(pathToImage);

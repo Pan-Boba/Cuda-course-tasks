@@ -25,7 +25,8 @@ void RunTask(int taskNumber)
 		case 4:
 		{
 			std::cout << "Running the fourth task...\n" << std::endl;
-			fourthTask::FindCircle("./src/task4/InputImage.png");
+			//fourthTask::FindCircleCPU("./src/task4/InputImage.png");
+			fourthTask::FindCircleGPU("./src/task4/InputImage.png");
 			std::cout << "Fourth task completed.\n" << std::endl;
 			break;
 		}
